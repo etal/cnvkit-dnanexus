@@ -127,8 +127,7 @@
       {"name": "r-recommended"},
       {"name": "reportlab", "package_manager": "pip"},
       {"name": "pysam",     "package_manager": "pip"},
-      {"name": "biopython", "package_manager": "pip"},
-      {"name": "cnvkit",    "package_manager": "pip"}
+      {"name": "biopython", "package_manager": "pip"}
     ],
     "systemRequirements": {
         "main": {"instanceType": "mem1_ssd1_x8"}

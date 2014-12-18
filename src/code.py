@@ -31,6 +31,10 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None, baits=None,
 
     # Install R dependencies
     install_bioc()
+    # Install CNVkit itself
+    # (NB: doing this from dxapp.json tries and fails to rebuild matplotlib)
+    sh("pip install --user cnvkit")
+    os.environ["PATH"] += ":" + os.environ["HOME"] + "/.local/bin"
 
     # Initialize and download file inputs to the local file system
     cn_reference = download_link(cn_reference)
@@ -161,25 +165,24 @@ def install_bioc():
     """In R, download and install dependencies including Bioconductor."""
     r_version = shout("R --version | head -n1 | cut -d' ' -f3 | cut -d. -f1-2"
                      ).strip()
-    # export R_LIBS_USER="$HOME/R/x86_64-pc-linux-gnu-library/$r_version"
+    r_libs_user_dir = "/".join([os.environ["HOME"],
+                                "R/x86_64-pc-linux-gnu-library",
+                                r_version])
     # eg. "/home/dnanexus/R/x86_64-pc-linux-gnu-library/2.14/"
-    r_libs_user_dir = "/".join(os.environ["HOME"],
-                               "R/x86_64-pc-linux-gnu-library",
-                               r_version)
     os.environ["R_LIBS_USER"] = r_libs_user_dir
     if os.path.isdir(r_libs_user_dir):
         print("R_LIBS_USER dir exists:", r_libs_user_dir)
     else:
         print("Creating R_LIBS_USER dir:", r_libs_user_dir)
-        os.mkdir(r_libs_user_dir)
+        os.makedirs(r_libs_user_dir)
     sh("Rscript -e '%s'"
-       % "; ".join((
+       % "; ".join([
            '.libPaths(Sys.getenv("R_LIBS_USER"))',
            'source("http://bioconductor.org/biocLite.R")',
            'biocLite()',
            'biocLite("DNAcopy")',
            'install.packages("PSCBS", repos="http://cran.us.r-project.org")',
-       )))
+       ]))
 
 
 # _____________________________________________________________________________
