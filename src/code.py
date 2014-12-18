@@ -14,6 +14,7 @@ from __future__ import division, print_function
 
 import os
 import subprocess
+import tempfile
 from glob import glob
 
 import dxpy
@@ -23,9 +24,10 @@ import dxpy
 def main(tumor_bams=None, normal_bams=None, cn_reference=None, baits=None,
          fasta=None, access=None, annotation=None):
 
-    if cn_reference and any((baits, fasta, access, annotation)):
+    if cn_reference and any((normal_bams, baits, fasta, access, annotation)):
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
-                            "alongside baits, fasta, access or annotation")
+                            "alongside normal_bams, baits, fasta, access "
+                            "or annotation")
 
     # Install R dependencies
     install_bioc()
@@ -41,56 +43,37 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None, baits=None,
     if normal_bams is not None:
         normal_bams = map(download_link, normal_bams)
 
+    out_fnames = run_cnvkit(tumor_bams, normal_bams, cn_reference,
+                            baits, fasta, access, annotation)
+
     # Upload file outputs from the local file system to the platform.
-    # copy_ratios=$(dx upload ${sample_name}.cnr --brief)
-    # copy_segments=$(dx upload ${sample_name}.cns --brief)
-    # profile_img=$(dx upload ${sample_name}-scatter.pdf --brief)
-    # diagram_img=$(dx upload ${sample_name}-diagram.pdf --brief)
-    # gainloss_tsv=$(dx upload ${sample_name}-gainloss.tsv --brief)
-    # breaks_tsv=$(dx upload ${sample_name}-breaks.tsv --brief)
-    # nexus_cn=$(dx upload ${sample_name}.nexus --brief)
-    # --
-    # scatter = dxpy.upload_local_file("scatter")
-    # diagram = dxpy.upload_local_file("diagram")
-    # nexus_cn = dxpy.upload_local_file("nexus_cn")
+    def upload(key):
+        return dxpy.dxlink(dxpy.upload_local_file(out_fnames[key]))
 
-    output = {}
-    # output["copy_ratios"] = [dxpy.dxlink(item) for item in copy_ratios]
-    # output["copy_segments"] = [dxpy.dxlink(item) for item in copy_segments]
-    # output["gender"] = gender
-    # output["gainloss"] = [dxpy.dxlink(item) for item in gainloss]
-    # output["breaks"] = [dxpy.dxlink(item) for item in breaks]
-    # output["scatter"] = dxpy.dxlink(scatter)
-    # output["diagram"] = dxpy.dxlink(diagram)
-    # output["nexus_cn"] = dxpy.dxlink(nexus_cn)
+    def upload_list(key):
+        return [dxpy.dxlink(dxpy.upload_local_file(fname))
+                for fname in out_fnames[key]]
 
-    return output
+    return {
+        "cn_reference": upload("reference"),
+        "copy_ratios": upload_list("cnr"),
+        "copy_segments": upload_list("cns"),
+        "gainloss": upload_list("gainloss"),
+        "breaks": upload_list("breaks"),
+        "nexus_cn": upload_list("nexus"),
+        "metrics": upload("metrics"),
+        "genders": upload("genders"),
+        "scatter_pdf": upload("scatter_pdf"),
+        "diagram_pdf": upload("diagram_pdf"),
+    }
 
 
 def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, access,
                annotation):
-    """Run the CNVkit pipeline."""
+    """Run the CNVkit pipeline.
 
-    # TODO
-    # if cn_reference:
-    #    (treat normal_bams as more tumor_bams, if given -- or hurl?)
-    #     $ cnvkit.py $tumor_bams $normal_bams -r $cn_reference
-
-    # if no normal, no tumor:
-    #     (build a flat reference and return it)
-    #     $ cnvkit.py batch -n -f fasta -t baits ...
-    #     or
-    #     $ cnvkit.py reference -f fasta -t baits
-    # if normal, but no tumor:
-    #     (build a pooled reference and return it)
-    #     $ cnvkit.py batch -n normal_bams -f fasta -t baits ...
-    # if tumor, but no normal:
-    #     (build a flat reference and use it on tumors)
-    #     $ cnvkit.py batch tumor_bams -n -f fasta -t baits ...
-    # if tumor and normal:
-    #     (build a pooled reference and use it on tumors)
-    #     $ cnvkit.py batch tumor_bams -n normal_bams -f fasta -t baits ...
-
+    Returns a dict of the generated file names.
+    """
     print("Determining if the given reference profile is male or female")
     if shout("cnvkit.py gender", reference, "| cut -f 2").strip() == "Female":
         yflag = ""
@@ -98,52 +81,81 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, access,
         yflag = "-y"
 
     print("Running the main CNVkit pipeline")
-    command = ["cnvkit.py batch"]
+    command = ["cnvkit.py batch -p 0", yflag]
+
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
-    if normal_bams:
-        command.append("-n")
-        command.extend(normal_bams)
     if reference:
         command.extend(["-r", reference])
-    if baits:
-        command.extend(["-t", baits, "--split", "--short-names"])
-    if fasta:
-        command.extend(["-f", fasta])
-    if access:
-        command.extend(["-g", access])
-    if annotation:
-        command.extend(["--annotate", annotation])
-    if yflag:
-        command.append("-y")
+    else:
+        reference = safe_fname("cnv-reference", "cnn")
+        command.extend("--output-reference", reference, "-n")
+        if normal_bams:
+            command.extend(normal_bams)
+        if baits:
+            command.extend(["-t", baits, "--split", "--short-names"])
+        if fasta:
+            command.extend(["-f", fasta])
+            if not access:
+                access = safe_fname("access-10k", "bed")
+                sh("genome2access.py -s 10000", fasta, "-o", access)
+        if access:
+            command.extend(["-g", access])
+        if annotation:
+            command.extend(["--annotate", annotation])
+
     sh(*command)
+    sh("ls -Altr")  # Show the generated files in the DNAnexus log
 
     # Collect the outputs
     all_cnr = glob("*.cnr")
     all_cns = glob("*.cns")
-    sh("cnvkit.py gainloss", " ".join(all_cnr), "-s", " ".join(all_cns),
-       "-m 3 -t 0.3", yflag, "-o gainloss.tsv")
-
-    genders = []
+    all_gainloss = []
+    all_breaks = []
+    all_nexus = []
     for acnr, acns in zip(all_cnr, all_cns):
-        sample_name = acnr.split('.')[0]
-        sh("cnvkit.py breaks", acnr, acns, "-m 3 -o", sample_name + "-breaks.csv")
-        sh("cnvkit.py export nexus-basic", sample_name + ".cnr -o",
-           sample_name + ".nexus")
-        gender = shout("cnvkit.py gender", yflag, sample_name + ".cns",
-                       "| cut -f 2")
-        genders.append(gender)
+        name = acnr.split('.')[0]
 
-    all_pdf = glob("*.pdf")
-    # TODO - pdfunite
+        gainloss = name + "gainloss.csv"
+        sh("cnvkit.py gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
+           "-o", gainloss)
+        all_gainloss.append(gainloss)
 
-    sh("ls -Altr")  # dbg
+        breaks = name + "-breaks.csv"
+        sh("cnvkit.py breaks", acnr, acns, "-m 3", "-o", breaks)
+        all_breaks.append(breaks)
 
-    return genders, all_cnr, all_cns
+        nexus = name + ".nexus"
+        sh("cnvkit.py export nexus-basic", name + ".cnr", "-o", nexus)
+        all_nexus.append(nexus)
 
+    metrics = safe_fname("metrics", "csv")
+    sh("cnvkit.py metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
+       "-o", metrics)
 
-# _____________________________________________________________________________
+    genders = safe_fname("gender", "csv")
+    sh("cnvkit.py gender", yflag, "-o", genders, *all_cnr)
+
+    scatter_pdf = safe_fname("cnv-scatters", "pdf")
+    sh("pdfunite", " ".join(glob("*-scatter.pdf")), scatter_pdf)
+
+    diagram_pdf = safe_fname("cnv-diagrams", "pdf")
+    sh("pdfunite", " ".join(glob("*-diagram.pdf")), diagram_pdf)
+
+    return {
+        "reference": reference,
+        "cnr": all_cnr,
+        "cns": all_cns,
+        "gainloss": all_gainloss,
+        "breaks": all_breaks,
+        "nexus": all_nexus,
+        "metrics": metrics,
+        "genders": genders,
+        "scatter_pdf": scatter_pdf,
+        "diagram_pdf": diagram_pdf,
+    }
+
 
 def install_bioc():
     """In R, download and install dependencies including Bioconductor."""
@@ -170,6 +182,8 @@ def install_bioc():
        )))
 
 
+# _____________________________________________________________________________
+
 def download_link(dxlink):
     """Download a DNAnexus object reference to the original filename.
 
@@ -180,6 +194,18 @@ def download_link(dxlink):
         fname = dxf.describe()['name']
         dxpy.download_dxfile(dxf.get_id(), fname)
         return fname
+
+
+def safe_fname(base, ext):
+    """Ensure the chosen filename will not overwrite an existing file.
+
+    If it would, insert some garbage in the middle of the chosen filename to
+    avoid the naming conflict.
+    """
+    fname = base + "." + ext
+    if os.path.exists(fname):
+        fname = tempfile.mktemp(prefix=base + "-", suffix="." + ext, dir=".")
+    return fname
 
 
 def sh(*command):
@@ -197,7 +223,6 @@ def shout(*command):
     result = subprocess.check_output(cmd, shell=True)
     print()
     return result
-
 
 
 # _____________________________________________________________________________

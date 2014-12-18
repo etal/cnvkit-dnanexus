@@ -81,33 +81,38 @@
       "class": "array:file"
     },
     {
-      "name": "gender",
-      "label": "Gender (guessed)",
-      "class": "string"
+      "name": "gainloss",
+      "label": "Gain/loss tables (.csv)",
+      "class": "array:file"
     },
     {
-      "name": "gainloss_tsv",
-      "label": "Gain/loss table (.tsv)",
-      "class": "file"
-    },
-    {
-      "name": "breaks_tsv",
-      "label": "Breakpoints table (.tsv)",
-      "class": "file"
-    },
-    {
-      "name": "profile_img",
-      "label": "Genome profile image (PDF)",
-      "class": "file"
-    },
-    {
-      "name": "diagram_img",
-      "label": "Chromosome diagram image (PDF)",
-      "class": "file"
+      "name": "breaks",
+      "label": "Breakpoints tables (.csv)",
+      "class": "array:file"
     },
     {
       "name": "nexus_cn",
       "label": "Nexus copy number",
+      "class": "array:file"
+    },
+    {
+      "name": "metrics",
+      "label": "Bin variance metrics (.csv)",
+      "class": "file"
+    },
+    {
+      "name": "genders",
+      "label": "Genders (guessed)",
+      "class": "file"
+    },
+    {
+      "name": "scatter_pdf",
+      "label": "Genome profile images (PDF)",
+      "class": "file"
+    },
+    {
+      "name": "diagram_pdf",
+      "label": "Chromosome diagram images (PDF)",
       "class": "file"
     }
   ],
@@ -124,7 +129,10 @@
       {"name": "pysam",     "package_manager": "pip"},
       {"name": "biopython", "package_manager": "pip"},
       {"name": "cnvkit",    "package_manager": "pip"}
-    ]
+    ],
+    "systemRequirements": {
+        "main": {"instanceType": "mem1_ssd1_x8"}
+    }
   },
   "access": {
     "network": [ "*" ]
