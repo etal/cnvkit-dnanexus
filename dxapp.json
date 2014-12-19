@@ -3,7 +3,7 @@
   "title": "CNVkit",
   "summary": "Run CNVkit to call copy number variants and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "categories": [
     "Structural Variation"
   ],
@@ -39,6 +39,7 @@
       "class": "boolean",
       "default": true,
       "optional": true
+    },
     {
       "name": "baits",
       "label": "Baited regions",
