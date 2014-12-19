@@ -1,17 +1,26 @@
 {
   "name": "cnvkit_batch",
   "title": "CNVkit",
-  "summary": "Run CNVkit to call copy number variants and/or build a reference profile",
+  "summary": "Call copy number variants from targeted sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
   "version": "0.3.0",
   "categories": [
     "Structural Variation"
   ],
+  "details": {
+    "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
+    "upstreamUrl": "https://github.com/etal/cnvkit/",
+    "upstreamVersion": "0.3.0",
+    "upstreamLicences": [ "MIT" ],
+    "upstreamAuthor": "Eric Talevich",
+    "contactEmail": [ "eric.talevich@ucsf.edu" ],
+    "citations": [ "doi:10.1101/010876" ]
+  },
   "inputSpec": [
     {
       "name": "tumor_bams",
       "label": "Tumor sample mapped reads (BAM)",
-      "help": "Mapped reads for each tumor/test sample, in BAM format.",
+      "help": "Mapped reads for each tumor/test sample, in BAM format. CNVs will be called in these samples.",
       "class": "array:file",
       "patterns": [ "*.bam" ],
       "optional": true
@@ -19,7 +28,7 @@
     {
       "name": "normal_bams",
       "label": "Normal sample mapped reads (BAM)",
-      "help": "Mapped reads for each normal/control sample, in BAM format.",
+      "help": "Mapped reads for each normal/control sample, in BAM format. Used to construct a new copy number reference. If neither normal_bams nor cn_reference is given, a 'generic' or 'flat' reference will be created with equal expected coverage across the genome.",
       "class": "array:file",
       "patterns": [ "*.bam" ],
       "optional": true
@@ -27,7 +36,7 @@
     {
       "name": "cn_reference",
       "label": "Copy number reference",
-      "help": "Reference profile (.cnn), previously built using CNVkit",
+      "help": "Reference profile (.cnn), previously built using CNVkit. If given, this will be used directly to call CNVs in the given tumor samples; none of the other inputs apply in this case.",
       "class": "file",
       "patterns": [ "*.cn*" ],
       "optional": true
@@ -35,7 +44,7 @@
     {
       "name": "is_male_normal",
       "label": "Male reference?",
-      "help": "Use or assume a male-normal reference? Determines expected chrX ploidy.",
+      "help": "Assume or create a male-normal reference? Determines the expected chrX ploidy.",
       "class": "boolean",
       "default": true,
       "optional": true
@@ -43,7 +52,7 @@
     {
       "name": "baits",
       "label": "Baited regions",
-      "help": "Baited (tiled, targeted) genomic regions.",
+      "help": "Baited (tiled, targeted) genomic regions, in BED or GATK/Picard-style interval list format. Required to construct a new reference.",
       "class": "file",
       "patterns": [ "*.bed", "*.list", "*.interval_list" ],
       "optional": true
@@ -51,7 +60,7 @@
     {
       "name": "fasta",
       "label": "Reference genome (FASTA)",
-      "help": "Reference genome sequences of all chromosomes, together in FASTA format",
+      "help": "Reference genomic sequences of all chromosomes, in FASTA format",
       "class": "file",
       "patterns": [ "*.fa", "*.fasta", "*.fa.gz", "*.fasta.gz" ],
       "optional": true
@@ -59,7 +68,7 @@
     {
       "name": "access",
       "label": "Accessible regions",
-      "help": "Sequencing-accessible genomic regions, matching the reference genome.",
+      "help": "Sequencing-accessible genomic regions, matching the reference genome. If not given, but fasta is, then these regions will be inferred from the fasta input (masked chromosome sequences).",
       "class": "file",
       "patterns": [ "*.bed", "*.list", "*.interval_list" ],
       "optional": true
@@ -67,7 +76,7 @@
     {
       "name": "annotation",
       "label": "Gene annotation",
-      "help": "UCSC genome annotation database file, e.g. refFlat.txt for the RefSeq annotation of your reference genome.",
+      "help": "UCSC genome annotation database file, e.g. refFlat.txt for the RefSeq annotation of your reference genome. Used to apply gene names to targets/baits, if the 'baits' BED file does not have a fourth column of region names.",
       "class": "file",
       "patterns": [ "*.txt" ],
       "optional": true
