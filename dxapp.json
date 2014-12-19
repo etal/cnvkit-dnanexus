@@ -154,5 +154,5 @@
   "access": {
     "network": [ "*" ]
   },
-  "authorizedUsers": []
+  "authorizedUsers": ["PUBLIC"]
 }
