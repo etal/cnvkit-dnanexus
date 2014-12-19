@@ -33,10 +33,18 @@
       "optional": true
     },
     {
+      "name": "is_male_normal",
+      "label": "Male reference?",
+      "help": "Use or assume a male-normal reference? Determines expected chrX ploidy.",
+      "class": "boolean",
+      "default": true,
+      "optional": true
+    {
       "name": "baits",
       "label": "Baited regions",
       "help": "Baited (tiled, targeted) genomic regions.",
       "class": "file",
+      "patterns": [ "*.bed", "*.list", "*.interval_list" ],
       "optional": true
     },
     {
@@ -73,47 +81,56 @@
     {
       "name": "copy_ratios",
       "label": "Copy ratios (.cnr)",
-      "class": "array:file"
+      "class": "array:file",
+      "optional": true
     },
     {
       "name": "copy_segments",
       "label": "Copy segments (.cns)",
-      "class": "array:file"
+      "class": "array:file",
+      "optional": true
     },
     {
       "name": "gainloss",
       "label": "Gain/loss tables (.csv)",
-      "class": "array:file"
+      "class": "array:file",
+      "optional": true
     },
     {
       "name": "breaks",
       "label": "Breakpoints tables (.csv)",
-      "class": "array:file"
+      "class": "array:file",
+      "optional": true
     },
     {
       "name": "nexus_cn",
       "label": "Nexus copy number",
-      "class": "array:file"
+      "class": "array:file",
+      "optional": true
     },
     {
       "name": "metrics",
       "label": "Bin variance metrics (.csv)",
-      "class": "file"
+      "class": "file",
+      "optional": true
     },
     {
       "name": "genders",
       "label": "Genders (guessed)",
-      "class": "file"
+      "class": "file",
+      "optional": true
     },
     {
       "name": "scatter_pdf",
-      "label": "Genome profile images (PDF)",
-      "class": "file"
+      "label": "Genome plot(s) (PDF)",
+      "class": "file",
+      "optional": true
     },
     {
       "name": "diagram_pdf",
-      "label": "Chromosome diagram images (PDF)",
-      "class": "file"
+      "label": "Chromosome diagram(s) (PDF)",
+      "class": "file",
+      "optional": true
     }
   ],
   "runSpec": {
