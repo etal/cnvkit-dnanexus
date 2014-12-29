@@ -38,7 +38,7 @@
       "label": "Copy number reference",
       "help": "Reference profile (.cnn), previously built using CNVkit. If given, this will be used directly to call CNVs in the given tumor samples; none of the other inputs apply in this case.",
       "class": "file",
-      "patterns": [ "*.cn*" ],
+      "patterns": [ "*.cnn" ],
       "optional": true
     },
     {
@@ -151,6 +151,7 @@
       {"name": "python-numpy"},
       {"name": "python-tk"},
       {"name": "python-matplotlib"},
+      {"name": "python-pip"},
       {"name": "r-recommended"},
       {"name": "reportlab", "package_manager": "pip"},
       {"name": "pysam",     "package_manager": "pip"},
