@@ -1,0 +1,322 @@
+Changes in Version 1.35.1
+
+   o update cytoBand data to match the goldenPath hg19 file
+
+
+1.33.1 became 1.34.0 in Bioconductor 2.12 & =1.35.0 now
+------------------------------------------------------
+
+Changes in Version 1.33.1
+
+   o changes to smooth.CNA.  Looping over chromosomes done within fortran
+     and calculate median of nbhd only when needed.  Change R code to match.
+
+
+1.31.1 became 1.32.0 in Bioconductor 2.11 & =1.33.0 now
+------------------------------------------------------
+
+Changes in Version 1.31.1
+
+   o use function segments in plots instead of lines in a loop
+
+
+1.29.2 became 1.30.0 in Bioconductor 2.10 & =1.31.0 now
+------------------------------------------------------
+
+Changes in Version 1.29.2
+
+   o Dropped startup message about data format.
+
+Changes in Version 1.29.1
+
+   o added additional details the smooth.CNA help function
+   o made sure that CNA orders data correctly when chrom is an ordered 
+     variable with both integer and character values (i.e. X or Y).
+
+
+1.27.2 became 1.28.0 in Bioconductor 2.9 & =1.29.0 now
+------------------------------------------------------
+
+Changes in Version 1.27.2
+
+   o segment function gets default.DNAcopy.bdry internaly instead of assuming
+     DNAcopy is loaded. Allows for loading package by NAMESPACE only.
+   o xmaploc now works for samplebychrom and chrombysample also.
+
+
+Changes in Version 1.27.1
+
+   o Don't further segment if all values in the current segment are the same.
+   o Use is.finite in functions instead of is.na(.) & !(abs(.)==Inf)
+
+
+1.25.1 became 1.26.0 in Bioconductor 2.8 & =1.27.0 now
+------------------------------------------------------
+
+Changes in Version 1.25.1
+
+   o House keeping: changed the URL for cytoband and removed Columbia email
+
+
+1.23.8 became 1.24.0 in Bioconductor 2.7 & =1.25.0 now
+------------------------------------------------------
+
+Changes in Version 1.23.8
+
+   o Added getbdry to exported functions in NAMESPACE
+
+Changes in Version 1.23.7
+
+   o Versions 1.23.4 to 1.23.6 were changes made to use file based data. 
+     This needed changing CNA and DNAcopy objects to S4 classes which was
+     too much of a paradigm shift for users.  So changes are undone here.
+   o Change default smooth.region to 10 in smooth.CNA
+   o Added function plotSample for whole genome plot of a single sample.
+   o Fixed the is.integer to is.numeric in subset functions.
+   o CNA accomodates data.frames (as.matrix not needed) and presorted data.
+
+Changes in Version 1.23.3 (same fix applied in v1.22.1)
+
+   o Fixed weird bug in smoothCNA.f triggered when there are at most
+     2*smooth.region (default smooth.region=2) markers in a chromosome.
+
+Changes in Version 1.23.2
+
+   o row numbers of the segments are automatically returned as the object
+     segRows in the output.  The print method shows it if showSegRows=TRUE.
+
+Changes in Version 1.23.1
+
+   o Added zoomIntoRegion function.
+   o Added an option to return the row numbers of the segments.
+
+
+1.21.6 became 1.22.0 in Bioconductor 2.6 & =1.23.0 now
+------------------------------------------------------
+
+Changes in Version 1.21.6
+
+   o Fixed indexing bug (i <= k or i > n-k, not and) in smoothCNA.f
+
+Changes in Version 1.21.5
+
+   o ADDED packageStartupMessage THAT CNA DATA FORMAT WILL CHANGE
+   o changed filename of NEWS to CHANGES; file format didn't work with news
+   o changed function .First.lib to .onLoad
+   o in the function CNA, changed code for ordering by chrom and maploc 
+     because of "na.last=NA" slowed it down terribly
+   o removed the unnecessary rownames command in CNA
+
+Changes in Version 1.21.4
+
+   o moved CHANGES file to inst/NEWS
+   o documentation of CNA and segment say that missing values will be removed
+
+Changes in Version 1.21.3
+
+   o forgot to deallocate memory in the new code
+
+Changes in Version 1.21.2
+
+   o changed the code for htmaxp & hwtmaxp for the hybrid
+
+Changes in Version 1.21.1
+
+   o changed our affiliations in the vignette
+
+
+1.19.6 became 1.20.0 in Bioconductor 2.5 & =1.21.0 now
+------------------------------------------------------
+
+Changes in Version 1.19.6
+
+   o added function glFrequency to calculate gains and losses
+
+Changes in Version 1.19.5
+
+   o Changed smooth.CNA from all R to Fortran backbone
+
+Changes in Version 1.19.4
+
+   o Fixed infinite loop when the logratio is constant across a segment
+
+Changes in Version 1.19.3
+
+   o Redundancy check by Henrik Bengtsson
+   o Bioconductor fixes (license version, BiocViews etc.)
+
+Changes in Version 1.19.2
+
+   o Fixed a rarely triggered bug in the new code
+
+
+Changes in Version 1.19.1
+
+   o Faster algorithm to compute the CBS maximum t-statistic
+
+
+1.17.5 became 1.18.0 in Bioconductor 2.4 & =1.19.0 now
+------------------------------------------------------
+
+Changes in Version 1.17.5
+
+   o For weighted CBS return weighted segment means (not ordinary mean).
+
+Changes in Version 1.17.4
+
+   o Bug fixes to wtermp code and how it's called in wfindcpt.
+
+Changes in Version 1.17.3
+
+   o Weighted segmentation code added.  Weights per probe can be used.
+
+Changes in Version 1.17.1
+
+   o NAMESPACE file added and man pages fixed to reflect it.
+
+
+1.15.4 became 1.16.0 in Bioconductor 2.3 & =1.17.0 now
+------------------------------------------------------
+
+Changes in Version 1.15.4
+
+   o make sure there are at least 10 obsns when t-stat threshold is used
+
+Changes in Version 1.15.3
+
+   o the minimum width of segment is user selectable (argument min.width). 
+     Changed from the fixed value of 2 based on user demand.  Max value 5.
+
+Changes in Version 1.15.2
+
+   o changed to a faster algorithm for calculating the max t-statistic
+
+   o changed to a faster code for undoing edge effects (redundant perm)
+
+   o added basic functions exon.segment and exon.changepoint (workhorse)
+     These functions are used for finding a translocation using binary
+     segmentation.  The data for this should be properly normalized.
+
+   o fortran code re-arranged into different files
+
+Changes in Version 1.15.1
+
+   o updated the call to get(getOption("device")) to use dev.new
+
+
+1.13.3 became 1.14.0 in Bioconductor 2.2 & =1.15.0 now
+------------------------------------------------------
+
+Changes in Version 1.13.3
+
+   o Added segments.summary to give the median, sd & mad for each segment.
+
+Changes in Version 1.13.2
+
+   o Modified the p-value function to replace p > 1 with 1.
+
+Changes in Version 1.13.1
+
+   o Modified the p-value function.  Added pseudo confidence intervals 
+     for the change-points.
+
+   o Windowing option has been removed (R & fortran code modified).
+
+
+1.11.2 became 1.12.0 in Bioconductor 2.1 & =1.13.0 now
+------------------------------------------------------
+
+Changes in Version 1.11.2
+
+   o Added a p-value function for the change-points.  This is based on 
+     binary segmentation and not necessarily correct but gives an idea
+     of the relative importance of the change-points.
+
+Changes in Version 1.11.1
+
+   o Changed Venkat's affiliation from MSKCC to Columbia University
+
+
+1.9.3 became 1.10.0 in Bioconductor 2.0 & =1.11.0 now
+-----------------------------------------------------
+
+Changes in Version 1.9.3
+
+   o Added warning that windowing will be deprecated in the next version.
+
+Changes in Version 1.9.2
+
+   o Added code to not bother with p-values and split the segment when the
+     maximal T is large (p-value will be tiny if T > 7).
+
+   o Added code to not split when the maximal T is small (fixes a numerical
+     problem where a constant large segment can have a significant split).
+
+Changes in Version 1.9.1
+
+   o The mod function in fortran inflicts serious time penalty --
+     code rewritten to fix it
+
+
+1.5.3 became 1.6(8).0 in Bioconductor 1.8(9) & =1.9.0 now
+---------------------------------------------------------
+
+Changes in Version 1.5.3
+
+   o Fixed the subset functions to enable sample re-ordering
+
+Changes in Version 1.5.2
+
+   o Bug fix in plot.DNAcopy (triggered only when #chrom=1)
+
+   o Added information about stopping rule in the Vignette
+
+   o Cytoband data from the goldenPath repository added for future plots
+
+Changes in Version 1.5.1
+
+   o Add a sequential stopping rule to declare change early 
+
+   o Bug fix - make the object from subset.DNAcopy of class DNAcopy
+
+   ###############################################################
+   ###                                                         ###
+   ##      E. S. Venkatraman is the new package maintainer      ##
+   ###                                                         ###
+   ###############################################################
+
+
+
+1.2.5 became 1.4.0 in Bioconductor 1.7 & =1.5.0 in the development branch
+-------------------------------------------------------------------------
+
+Changes in Version 1.2.5
+
+   o Updated the vignette to include references to additional features.
+
+Changes in Version 1.2.4
+
+   o Seg fault occurs if window.size is set when hybrid method is used.
+     Fixed by setting window.size to be NULL in the function segment.
+
+   o Added options to plot command to draw line at y=0 and control its 
+     color and lwd of all lines.
+
+   o If ylim is missing it's calculated from all the data instead of just
+     the first sample.
+
+Changes in Version 1.2.3
+
+   o Modifications to the plot function to make par("ask") behave better.
+
+Changes in Version 1.2.2
+
+   o Modified the plot function.  X-axis is either the index or (cumulative) 
+     map location. Incorporate col, pch, ylim etc. to provide better control
+     over plots.
+
+Changes in Version 1.2.1
+
+   o Added the hybrid method for computing p-values to determine splits.  This
+     speeds up the computations considerably and so has been made the default.
+

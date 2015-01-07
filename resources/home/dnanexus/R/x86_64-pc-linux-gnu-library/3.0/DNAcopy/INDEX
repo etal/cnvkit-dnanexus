@@ -1,0 +1,18 @@
+CNA                     Create 'Copy Number Array' data object
+DNAcopy                 Results of segmenting a CNA data object
+coriell                 Array CGH data set of Coriell cell lines
+cytoBand                Cytogenic band data
+exon.segment            Binary segmentation of exon data.
+getbdry                 Sequential stopping boundary
+glFrequency             Additional summary measured for the segments
+plot.DNAcopy            Plot the data and results from segment of a CNA
+                        object
+plotSample              Plot the data and results from segmentation for
+                        a single sample
+segment                 Genome Segmentation Program
+segments.p              p-values for the change-points
+segments.summary        Additional summary measured for the segments
+smooth.CNA              Smooth a 'Copy Number Array' data object
+subset.CNA              Subset a 'Copy Number Array' data object
+subset.DNAcopy          Subset a DNAcopy data object
+zoomIntoRegion          Zoomed in view of genomic region

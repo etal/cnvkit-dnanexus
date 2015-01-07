@@ -33,12 +33,13 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     if tumor_bams and not any((baits, cn_reference)):
         raise dxpy.AppError("Need cn_reference or baits to process tumor_bams")
 
-    # Install R dependencies
-    install_bioc()
+    # Set R library path
+    # eg. "/home/dnanexus/R/x86_64-pc-linux-gnu-library/3.0/"
+    os.environ["R_LIBS_USER"] = "/".join([os.environ["HOME"],
+                                          "R/x86_64-pc-linux-gnu-library",
+                                          "3.0"])
     # Install CNVkit itself
-    # (NB: doing this from dxapp.json tries and fails to rebuild matplotlib)
-    # sh("pip install --user cnvkit")
-    # os.environ["PATH"] += ":" + os.environ["HOME"] + "/.local/bin"
+    # (NB: using pip from dxapp.json tries and fails to rebuild matplotlib)
     sh("python setup.py build")
 
     print("Downloading file inputs to the local file system")
@@ -174,30 +175,6 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
         "scatter_pdf": scatter_pdf,
         "diagram_pdf": diagram_pdf,
     }
-
-
-def install_bioc():
-    """In R, download and install dependencies including Bioconductor."""
-    r_version = shout("R --version | head -n1 | cut -d' ' -f3 | cut -d. -f1-2"
-                     ).strip()
-    r_libs_user_dir = "/".join([os.environ["HOME"],
-                                "R/x86_64-pc-linux-gnu-library",
-                                r_version])
-    # eg. "/home/dnanexus/R/x86_64-pc-linux-gnu-library/2.14/"
-    os.environ["R_LIBS_USER"] = r_libs_user_dir
-    if os.path.isdir(r_libs_user_dir):
-        print("R_LIBS_USER dir exists:", r_libs_user_dir)
-    else:
-        print("Creating R_LIBS_USER dir:", r_libs_user_dir)
-        os.makedirs(r_libs_user_dir)
-    sh("Rscript -e '%s'"
-       % "; ".join([
-           '.libPaths(Sys.getenv("R_LIBS_USER"))',
-           'source("http://bioconductor.org/biocLite.R")',
-           'biocLite()',
-           'biocLite("DNAcopy")',
-           'install.packages("PSCBS", repos="http://cran.us.r-project.org")',
-       ]))
 
 
 # _____________________________________________________________________________
