@@ -1,8 +1,12 @@
 """Export CNVkit objects and files to other formats."""
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
+
 import collections
+import math
+import sys
 
 from Bio._py3k import map, range, zip
+import numpy
 
 from . import core
 from .cnarray import row2label, CopyNumArray as CNA
@@ -153,6 +157,247 @@ def create_chrom_ids(segments):
             curr_idx += 1
     return mapping
 
+# _____________________________________________________________________________
+# freebayes
+
+def export_freebayes(sample_fname, args):
+    """Export to FreeBayes --cnv-map format.
+
+    Which is BED-like, for each region in each sample which does not have
+    neutral copy number (equal to 2 or the value set by --ploidy), with columns:
+
+        - reference sequence
+        - start (0-indexed)
+        - end
+        - sample name
+        - copy number
+    """
+    if args.purity and not 0.0 < args.purity <= 1.0:
+        raise RuntimeError("Purity must be between 0 and 1.")
+
+    segs = CNA.read(sample_fname)
+    is_sample_female = core.guess_xx(segs, args.male_normal, verbose=False)
+    if args.gender:
+        is_sample_female_given = (args.gender in ["f", "female"])
+        if is_sample_female != is_sample_female_given:
+            print("Sample gender specified as", args.gender,
+                  "but chrX copy number looks like",
+                  "female" if is_sample_female else "male",
+                  file=sys.stderr)
+            is_sample_female = is_sample_female_given
+    print("Treating sample gender as",
+          "female" if is_sample_female else "male",
+          file=sys.stderr)
+
+    bedrows = segments2freebayes(segs, args.name or segs.sample_id,
+                                 args.ploidy, args.purity, args.male_normal,
+                                 is_sample_female)
+    return None, list(bedrows)
+
+
+def segments2freebayes(segments, sample_name, ploidy, purity, is_reference_male,
+                       is_sample_female):
+    """Convert a copy number array to a BED-like format."""
+    absolutes = cna_absolutes(segments, ploidy, purity, is_reference_male,
+                              is_sample_female)
+    for row, abs_val in zip(segments, absolutes):
+        ncopies = round_to_integer(abs_val, half_is_zero=purity is None)
+        # Ignore regions of neutral copy number
+        if ncopies != ploidy:
+            yield (row["chromosome"], # reference sequence
+                   row["start"], # start (0-indexed)
+                   row["end"], # end
+                   sample_name, # sample name
+                   ncopies) # copy number
+
+
+def round_to_integer(ncopies, half_is_zero=True, rounding_error=1e-7):
+    """Round an absolute estimate of copy number to a positive integer.
+
+    `half_is_zero` indicates the hack of encoding 0 copies (complete loss) as a
+    half-copy in log2 scale (e.g. log2-ratio value of -2.0 for diploid) to avoid
+    domain errors when log-transforming. If `half_is_zero`, a half-copy will be
+    rounded down to zero rather than up to 1 copy.
+    """
+    zero_cutoff = (.5 + rounding_error if half_is_zero else 0.0)
+    if ncopies <= zero_cutoff:
+        return 0
+    return int(round(ncopies))
+
+
+# _____________________________________________________________________________
+# theta
+
+def export_theta(tumor, reference):
+    """Convert tumor segments and normal .cnr or reference .cnn to THetA input.
+
+    Follows the THetA segmentation import script but avoid repeating the
+    pileups, since we already have the mean depth of coverage in each target
+    bin.
+
+    The options for average depth of coverage and read length do not matter
+    crucially for proper operation of THetA; increased read counts per bin
+    simply increase the confidence of THetA's results.
+
+    THetA2 input format is tabular, with columns:
+        ID, chrm, start, end, tumorCount, normalCount
+
+    where chromosome IDs ("chrm") are integers 1 through 24.
+    """
+    tumor_segs = CNA.read(tumor)
+    ref_vals = CNA.read(reference)
+
+    outheader = ["#ID", "chrm", "start", "end", "tumorCount", "normalCount"]
+    outrows = []
+    # Convert chromosome names to 1-based integer indices
+    prev_chrom = None
+    chrom_id = 0
+    for seg, ref_rows in ref_vals.by_segment(tumor_segs):
+        if seg["chromosome"] != prev_chrom:
+            chrom_id += 1
+            prev_chrom = seg["chromosome"]
+        fields = calculate_theta_fields(seg, ref_rows, chrom_id)
+        outrows.append(fields)
+
+    return outheader, outrows
+
+
+def calculate_theta_fields(seg, ref_rows, chrom_id):
+    """Convert a segment's info to a row of THetA input.
+
+    For the normal/reference bin count, take the mean of the bin values within
+    each segment so that segments match between tumor and normal.
+    """
+    # These two scaling factors don't meaningfully affect THetA's calculation
+    # unless they're too small
+    expect_depth = 100  # Average exome-wide depth of coverage
+    read_length = 100
+    # Similar number of reads in on-, off-target bins; treat them equally
+    segment_size = 1000 * seg["probes"]
+
+    def logratio2count(log2_ratio):
+        """Calculate a segment's read count from log2-ratio.
+
+        Math:
+            nbases = read_length * read_count
+        and
+            nbases = segment_size * read_depth
+        where
+            read_depth = read_depth_ratio * expect_depth
+
+        So:
+            read_length * read_count = segment_size * read_depth
+            read_count = segment_size * read_depth / read_length
+        """
+        read_depth = (2 ** log2_ratio) * expect_depth
+        read_count = segment_size * read_depth / read_length
+        return int(round(read_count))
+
+    tumor_count = logratio2count(seg["coverage"])
+    ref_count = logratio2count(ref_rows["coverage"].mean())
+    # e.g. "start_1_93709:end_1_19208166"
+    row_id = ("start_%d_%d:end_%d_%d"
+              % (chrom_id, seg["start"], chrom_id, seg["end"]))
+    return (row_id,       # ID
+            chrom_id,     # chrm
+            seg["start"], # start
+            seg["end"],   # end
+            tumor_count,  # tumorCount
+            ref_count     # normalCount
+           )
+
+
+# _____________________________________________________________________________
+# Rescaling etc.
+# (XXX move these to cnarray or another module)
+
+def rescale_copy_ratios(cnarr, purity=None, ploidy=2, is_sample_female=None,
+                        is_reference_male=True):
+    """Rescale segment copy ratio values given a known tumor purity."""
+    if purity and not 0.0 < purity <= 1.0:
+        raise ValueError("Purity must be between 0 and 1.")
+
+    chr_x = core.guess_chr_x(cnarr)
+    chr_y = ('chrY' if chr_x.startswith('chr') else 'Y')
+    if is_sample_female is None:
+        is_sample_female = core.guess_xx(cnarr, is_reference_male, chr_x,
+                                         verbose=False)
+    absolutes = cna_absolutes(cnarr, ploidy, purity, is_reference_male,
+                              is_sample_female)
+    # Avoid a logarithm domain error
+    absolutes[absolutes <= 0.0] = .5
+    abslog = numpy.log2(absolutes / float(ploidy))
+    newcnarr = cnarr.copy()
+    newcnarr["coverage"] = abslog
+    # Adjust sex chromosomes to be relative to the reference
+    if is_reference_male:
+        newcnarr['coverage'][newcnarr.chromosome == chr_x] += 1.0
+    newcnarr['coverage'][newcnarr.chromosome == chr_y] += 1.0
+    return newcnarr
+
+
+def cna_absolutes(cnarr, ploidy, purity, is_reference_male, is_sample_female):
+    """Calculate absolute copy number values from segment or bin log2 ratios."""
+    absolutes = numpy.zeros(len(cnarr), dtype=numpy.float_)
+    for i, row in enumerate(cnarr):
+        ref_copies, expect_copies = _reference_expect_copies(
+            row["chromosome"], ploidy, is_sample_female, is_reference_male)
+        absolutes[i] = _log2_ratio_to_absolute(
+            row["coverage"], ref_copies, expect_copies, purity)
+    return absolutes
+
+
+def _reference_expect_copies(chrom, ploidy, is_sample_female, is_reference_male):
+    """Determine the number copies of a chromosome expected and in reference.
+
+    For sex chromosomes, these values may not be the same ploidy as the
+    autosomes.
+
+    Return a pair: number of copies in the reference and expected in the sample.
+    """
+    chrom = chrom.lower()
+    if chrom in ["chrx", "x"]:
+        ref_copies = (ploidy // 2 if is_reference_male else ploidy)
+        exp_copies = (ploidy if is_sample_female else ploidy // 2)
+    elif chrom in ["chry", "y"]:
+        ref_copies = ploidy // 2
+        exp_copies = (0 if is_sample_female else ploidy // 2)
+    else:
+        ref_copies = exp_copies = ploidy
+    return ref_copies, exp_copies
+
+
+def _log2_ratio_to_absolute(log2_ratio, ref_copies, expect_copies, purity=None):
+    """Transform a log2 ratio value to absolute linear scale.
+
+    Math:
+
+        log2_ratio = log2(ncopies / ploidy)
+        2^log2_ratio = ncopies / ploidy
+        ncopies = ploidy * 2^log2_ratio
+
+    With rescaling for purity:
+
+        let v = log2 ratio value, p = tumor purity,
+            r = reference ploidy, x = expected ploidy;
+        v = log_2(p*n/r + (1-p)*x/r)
+        2^v = p*n/r + (1-p)*x/r
+        n*p/r = 2^v - (1-p)*x/r
+        n = (r*2^v - x*(1-p)) / p
+
+    If purity adjustment is skipped (p=1; e.g. if THetA was run beforehand):
+
+        n = r*2^v
+    """
+    if purity and purity < 1.0:
+        ncopies = (ref_copies * 2**log2_ratio - expect_copies * (1 - purity)
+                  ) / purity
+    else:
+        ncopies = ref_copies * 2 ** log2_ratio
+    return ncopies
+
+
+# _____________________________________________________________________________
 
 EXPORT_FORMATS = {
     'cdt': fmt_cdt,
@@ -162,4 +407,6 @@ EXPORT_FORMATS = {
     'nexus-basic': export_nexus_basic,
     # 'nexus-multi1': fmt_multi,
     'seg': export_seg,
+    'freebayes': export_freebayes,
+    'theta': export_theta,
 }

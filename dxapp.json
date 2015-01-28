@@ -3,15 +3,15 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from targeted sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.3.0",
-    "upstreamLicences": [ "MIT" ],
+    "upstreamVersion": "0.3.2-dev",
+    "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
     "citations": [ "doi:10.1101/010876" ]

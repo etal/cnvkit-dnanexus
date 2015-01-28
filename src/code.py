@@ -107,7 +107,8 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
             command.extend(["-f", fasta])
             if not access:
                 access = safe_fname("access-10k", "bed")
-                sh("genome2access.py -s 10000", fasta, "-o", access)
+                sh("python scripts/genome2access.py -s 10000", fasta,
+                   "-o", access)
         if access:
             command.extend(["-g", access])
         if annotation:
