@@ -10,7 +10,7 @@
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.3.2-dev",
+    "upstreamVersion": "0.3.2",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
