@@ -152,10 +152,7 @@
       {"name": "python-tk"},
       {"name": "python-matplotlib"},
       {"name": "python-pip"},
-      {"name": "r-recommended"},
-      {"name": "reportlab", "package_manager": "pip"},
-      {"name": "pysam",     "package_manager": "pip"},
-      {"name": "biopython", "package_manager": "pip"}
+      {"name": "r-recommended"}
     ],
     "systemRequirements": {
         "main": {"instanceType": "mem1_ssd1_x8"}

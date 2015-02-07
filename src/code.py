@@ -39,8 +39,8 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
                                           "R/x86_64-pc-linux-gnu-library",
                                           "3.0"])
     # Install CNVkit itself
-    # (NB: using pip from dxapp.json tries and fails to rebuild matplotlib)
-    sh("python setup.py build")
+    sh("pip install -v --no-index --find-links=file:///requirements -r requirements.txt")
+    sh("pip install -v --no-index --no-deps /requirements/CNVkit-0.3.2.tar.gz")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
@@ -84,7 +84,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
     yflag = "-y" if is_male_normal else ""
 
     print("Running the main CNVkit pipeline")
-    command = ["python cnvkit.py batch -p 0", yflag]
+    command = ["cnvkit.py batch -p 0", yflag]
 
     if tumor_bams:
         command.extend(tumor_bams)
@@ -92,7 +92,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
     if reference:
         command.extend(["-r", reference])
         print("Determining if the given reference profile is male or female")
-        if shout("python cnvkit.py gender", reference, "| cut -f 2"
+        if shout("cnvkit.py gender", reference, "| cut -f 2"
                 ).strip() == "Male":
             print("Looks like a male reference")
             yflag = "-y"
@@ -107,7 +107,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
             command.extend(["-f", fasta])
             if not access:
                 access = safe_fname("access-10k", "bed")
-                sh("python scripts/genome2access.py -s 10000", fasta,
+                sh("genome2access.py -s 10000", fasta,
                    "-o", access)
         if access:
             command.extend(["-g", access])
@@ -131,23 +131,23 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
         name = acnr.split('.')[0]
 
         gainloss = name + "-gainloss.csv"
-        sh("python cnvkit.py gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
+        sh("cnvkit.py gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
            "-o", gainloss)
         all_gainloss.append(gainloss)
 
         breaks = name + "-breaks.csv"
-        sh("python cnvkit.py breaks", acnr, acns, "-m 3", "-o", breaks)
+        sh("cnvkit.py breaks", acnr, acns, "-m 3", "-o", breaks)
         all_breaks.append(breaks)
 
         nexus = name + ".nexus"
-        sh("python cnvkit.py export nexus-basic", name + ".cnr", "-o", nexus)
+        sh("cnvkit.py export nexus-basic", name + ".cnr", "-o", nexus)
         all_nexus.append(nexus)
 
     genders = safe_fname("gender", "csv")
-    sh("python cnvkit.py gender", yflag, "-o", genders, *all_cnr)
+    sh("cnvkit.py gender", yflag, "-o", genders, *all_cnr)
 
     metrics = safe_fname("metrics", "csv" if len(all_cnr) > 1 else "txt")
-    sh("python cnvkit.py metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
+    sh("cnvkit.py metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
        "-o", metrics)
 
     all_scatters = glob("*-scatter.pdf")
