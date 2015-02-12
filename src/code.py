@@ -40,7 +40,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
                                           "3.0"])
     # Install CNVkit itself
     sh("pip install -v --no-index --find-links=file:///requirements -r requirements.txt")
-    sh("pip install -v --no-index --no-deps /requirements/CNVkit-0.3.2.tar.gz")
+    sh("pip install -v --no-index --no-deps /requirements/CNVkit-0.3.3.tar.gz")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
