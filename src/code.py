@@ -24,7 +24,7 @@ import dxpy
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
          is_male_normal=True, baits=None, fasta=None, access=None,
-         annotation=None):
+         annotation=None, do_parallel=True):
 
     if cn_reference and any((normal_bams, baits, fasta, access, annotation)):
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
@@ -40,7 +40,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
                                           "3.0"])
     # Install CNVkit itself
     sh("pip install -v --no-index --find-links=file:///requirements -r requirements.txt")
-    sh("pip install -v --no-index --no-deps /requirements/CNVkit-0.3.3.tar.gz")
+    sh("pip install -v --no-index --no-deps /requirements/CNVkit-0.3.5.tar.gz")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
@@ -58,7 +58,8 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     annotation = maybe_gunzip(annotation, "annot", "txt")
 
     out_fnames = run_cnvkit(tumor_bams, normal_bams, cn_reference,
-                            is_male_normal, baits, fasta, access, annotation)
+                            is_male_normal, baits, fasta, access, annotation,
+                            do_parallel)
 
     print("Uploading local file outputs to the DNAnexus platform")
     output = {}
@@ -76,7 +77,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
 
 
 def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
-               access, annotation):
+               access, annotation, do_parallel):
     """Run the CNVkit pipeline.
 
     Returns a dict of the generated file names.
@@ -84,8 +85,9 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
     yflag = "-y" if is_male_normal else ""
 
     print("Running the main CNVkit pipeline")
-    command = ["cnvkit.py batch -p 0", yflag]
-
+    command = ["cnvkit.py batch", yflag]
+    if do_parallel:
+        command.append("-p 0")
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])

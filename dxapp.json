@@ -3,14 +3,14 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from targeted sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.3.3",
+  "version": "0.3.5",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.3.3",
+    "upstreamVersion": "0.3.5",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
@@ -79,6 +79,14 @@
       "help": "UCSC genome annotation database file, e.g. refFlat.txt for the RefSeq annotation of your reference genome. Used to apply gene names to targets/baits, if the 'baits' BED file does not have a fourth column of region names.",
       "class": "file",
       "patterns": [ "*.txt" ],
+      "optional": true
+    },
+    {
+      "name": "do_parallel",
+      "label": "Parallelize?",
+      "help": "Run the pipeline on all available CPUs in parallel. Turn this off if you experience app crashes.",
+      "class": "boolean",
+      "default": true,
       "optional": true
     }
   ],
