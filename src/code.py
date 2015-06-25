@@ -24,7 +24,7 @@ import dxpy
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
          is_male_normal=True, baits=None, fasta=None, access=None,
-         annotation=None, do_parallel=True):
+         annotation=None, do_parallel=False):
 
     if cn_reference and any((normal_bams, baits, fasta, access, annotation)):
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
@@ -40,7 +40,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
                                           "3.0"])
     # Install CNVkit itself
     sh("pip install -v --no-index --find-links=file:///requirements -r requirements.txt")
-    sh("pip install -v --no-index --no-deps /requirements/CNVkit-0.5.0.tar.gz")
+    sh("pip install -v --no-index --no-deps /requirements/CNVkit-0.5.2.tar.gz")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
