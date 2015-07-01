@@ -152,21 +152,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
     sh("cnvkit.py metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
        "-o", metrics)
 
-    all_scatters = glob("*-scatter.pdf")
-    if len(all_scatters) > 1:
-        scatter_pdf = safe_fname("cnv-scatters", "pdf")
-        sh("pdfunite", " ".join(all_scatters), scatter_pdf)
-    else:
-        scatter_pdf = all_scatters[0]
-
-    all_diagrams = glob("*-diagram.pdf")
-    if len(all_diagrams) > 1:
-        diagram_pdf = safe_fname("cnv-diagrams", "pdf")
-        sh("pdfunite", " ".join(all_diagrams), diagram_pdf)
-    else:
-        diagram_pdf = all_diagrams[0]
-
-    return {
+    outputs = {
         "cn_reference": reference,
         "copy_ratios": all_cnr,
         "copy_segments": all_cns,
@@ -175,9 +161,27 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
         "nexus_cn": all_nexus,
         "metrics": metrics,
         "genders": genders,
-        "scatter_pdf": scatter_pdf,
-        "diagram_pdf": diagram_pdf,
     }
+
+    all_scatters = glob("*-scatter.pdf")
+    if all_scatters:
+        if len(all_scatters) == 1:
+            scatter_pdf = all_scatters[0]
+        else:
+            scatter_pdf = safe_fname("cnv-scatters", "pdf")
+            sh("pdfunite", " ".join(all_scatters), scatter_pdf)
+        outputs["scatter_pdf"] = scatter_pdf
+
+    all_diagrams = glob("*-diagram.pdf")
+    if all_diagrams:
+        if len(all_diagrams) == 1:
+            diagram_pdf = all_diagrams[0]
+        else:
+            diagram_pdf = safe_fname("cnv-diagrams", "pdf")
+            sh("pdfunite", " ".join(all_diagrams), diagram_pdf)
+        outputs["diagram_pdf"] = diagram_pdf
+
+    return outputs
 
 
 # _____________________________________________________________________________
