@@ -3,14 +3,14 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from targeted sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.7.2",
+  "version": "0.7.5",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.7.2",
+    "upstreamVersion": "0.7.5",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
@@ -86,7 +86,7 @@
       "label": "Parallelize?",
       "help": "Run the pipeline on all available CPUs in parallel. Turn this off if you experience app crashes.",
       "class": "boolean",
-      "default": false,
+      "default": true,
       "optional": true
     }
   ],
@@ -170,11 +170,8 @@
     "distribution":  "Ubuntu",
     "release":  "14.04",
     "systemRequirements": {
-        "main": {"instanceType": "mem1_ssd2_x8"}
+        "main": {"instanceType": "mem1_ssd1_x8"}
     }
-  },
-  "access": {
-    "network": [ "*" ]
   },
   "authorizedUsers": ["PUBLIC"]
 }

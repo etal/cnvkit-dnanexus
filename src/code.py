@@ -13,7 +13,7 @@ import dxpy
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
          is_male_normal=True, baits=None, fasta=None, access=None,
-         annotation=None, do_parallel=False):
+         annotation=None, do_parallel=True):
 
     if cn_reference and any((normal_bams, baits, fasta, access, annotation)):
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
