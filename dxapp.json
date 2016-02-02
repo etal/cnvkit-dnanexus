@@ -3,14 +3,14 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from targeted sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.5.2",
+  "version": "0.7.2",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.5.2",
+    "upstreamVersion": "0.7.2",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
@@ -156,14 +156,21 @@
     "file": "src/code.py",
     "execDepends": [
       {"name": "poppler-utils"},
-      {"name": "python-numpy"},
-      {"name": "python-tk"},
+      {"name": "python-biopython"},
+      {"name": "python-dateutil"},
       {"name": "python-matplotlib"},
-      {"name": "python-pip"},
+      {"name": "python-numpy"},
+      {"name": "python-reportlab"},
+      {"name": "python-scipy"},
+      {"name": "python-tk"},
+      {"name": "python-tz"},
+      {"name": "python-wheel"},
       {"name": "r-recommended"}
     ],
+    "distribution":  "Ubuntu",
+    "release":  "14.04",
     "systemRequirements": {
-        "main": {"instanceType": "mem1_ssd1_x8"}
+        "main": {"instanceType": "mem1_ssd2_x8"}
     }
   },
   "access": {
