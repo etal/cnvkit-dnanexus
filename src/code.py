@@ -30,6 +30,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     # Install the Python dependencies, then the package itself
     sh("pip install -v --no-index --find-links=file:///wheelhouse -r /requirements.txt")
     sh("pip install -v --no-index --find-links=file:///wheelhouse --no-deps cnvkit")
+    sh("chmod +x /usr/local/bin/cnvkit.py")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
