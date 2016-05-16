@@ -184,6 +184,11 @@ def download_link(dxlink):
     if dxlink is not None:
         dxf = dxpy.DXFile(dxlink)
         fname = dxf.describe()['name']
+        if ' ' in fname:
+            fname_nospace = fname.replace(' ', '_')
+            print("Filename", repr(fname), "contains spaces; renaming to",
+                  repr(fname_nospace))
+            fname = fname_nospace
         dxpy.download_dxfile(dxf.get_id(), fname)
         return fname
 
