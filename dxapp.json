@@ -84,15 +84,23 @@
     {
       "name": "antitarget_avg_size",
       "label": "Average off-target bin size",
-      "class": "integer",
+      "class": "int",
       "default": 200000,
       "optional": true
     },
     {
       "name": "target_avg_size",
       "label": "Average on-target bin size",
-      "class": "integer",
+      "class": "int",
       "default": 267,
+      "optional": true
+    },
+    {
+      "name": "drop_low_coverage",
+      "label": "Drop low-coverage bins?",
+      "help": "In tumor samples, very-low-coverage bins generally indicate poorly sequenced regions rather than copy number. This option removes those bins before segmentation.",
+      "class": "boolean",
+      "default": false,
       "optional": true
     },
     {
