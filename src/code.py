@@ -91,11 +91,10 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
     else:
         # Build a new reference
         reference = safe_fname("cnv-reference", "cnn")
-        command.extend(["-n",
-                        "--output-reference", reference,
+        command.extend(["--output-reference", reference,
                         "--antitarget-avg-size", antitarget_avg_size,
                         "--target-avg-size", target_avg_size,
-                       ])
+                        "-n"])
         if normal_bams:
             command.extend(normal_bams)
         if baits:
@@ -111,8 +110,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
             command.extend(["--annotate", annotation])
     # if drop_low_coverage:
     #     command.append("--drop-low-coverage")
-    if do_parallel:
-        command.append("-p 0")
+    command.append("-p 0" if do_parallel else "-p 1")
     yflag = "-y" if is_male_normal else ""
     command.append(yflag)
 
