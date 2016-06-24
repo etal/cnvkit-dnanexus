@@ -198,5 +198,6 @@
         "main": {"instanceType": "mem1_ssd1_x8"}
     }
   },
+  "openSource": "true",
   "authorizedUsers": ["PUBLIC"]
 }
