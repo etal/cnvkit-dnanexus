@@ -82,6 +82,28 @@
       "optional": true
     },
     {
+      "name": "antitarget_avg_size",
+      "label": "Average off-target bin size",
+      "class": "int",
+      "default": 200000,
+      "optional": true
+    },
+    {
+      "name": "target_avg_size",
+      "label": "Average on-target bin size",
+      "class": "int",
+      "default": 267,
+      "optional": true
+    },
+    {
+      "name": "drop_low_coverage",
+      "label": "Drop low-coverage bins?",
+      "help": "In tumor samples, very-low-coverage bins generally indicate poorly sequenced regions rather than copy number. This option removes those bins before segmentation.",
+      "class": "boolean",
+      "default": false,
+      "optional": true
+    },
+    {
       "name": "do_parallel",
       "label": "Parallelize?",
       "help": "Run the pipeline on all available CPUs in parallel. Turn this off if you experience app crashes.",
@@ -111,19 +133,22 @@
     {
       "name": "gainloss",
       "label": "Gain/loss tables (.csv)",
+      "help": "Lists of genes putatively gained or lost in each sample",
       "class": "array:file",
       "optional": true
     },
     {
       "name": "breaks",
       "label": "Breakpoints tables (.csv)",
+      "help": "Lists of genes containing possible breakpoints in each sample",
       "class": "array:file",
       "optional": true
     },
     {
-      "name": "nexus_cn",
-      "label": "Nexus copy number",
-      "class": "array:file",
+      "name": "seg",
+      "label": "SEG table",
+      "help": "All samples' CNV segments in SEG format, for use with other programs",
+      "class": "file",
       "optional": true
     },
     {
@@ -146,7 +171,7 @@
     },
     {
       "name": "diagram_pdf",
-      "label": "Chromosome diagram(s) (PDF)",
+      "label": "Chromosome ideogram(s) (PDF)",
       "class": "file",
       "optional": true
     }

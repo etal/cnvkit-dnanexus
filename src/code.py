@@ -13,7 +13,8 @@ import dxpy
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
          is_male_normal=True, baits=None, fasta=None, access=None,
-         annotation=None, do_parallel=True):
+         annotation=None, antitarget_avg_size=200000, target_avg_size=267,
+         drop_low_coverage=False, do_parallel=True):
 
     if cn_reference and any((normal_bams, baits, fasta, access, annotation)):
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
@@ -49,17 +50,17 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
 
     out_fnames = run_cnvkit(tumor_bams, normal_bams, cn_reference,
                             is_male_normal, baits, fasta, access, annotation,
-                            do_parallel)
+                            antitarget_avg_size, target_avg_size,
+                            drop_low_coverage, do_parallel)
 
     print("Uploading local file outputs to the DNAnexus platform")
     output = {}
-    for filekey in ("cn_reference", "metrics", "genders", "scatter_pdf",
+    for filekey in ("cn_reference", "seg", "metrics", "genders", "scatter_pdf",
                     "diagram_pdf"):
         if filekey in out_fnames:
             output[filekey] = dxpy.dxlink(
                 dxpy.upload_local_file(out_fnames[filekey]))
-    for listkey in ("copy_ratios", "copy_segments", "gainloss", "breaks",
-                    "nexus_cn"):
+    for listkey in ("copy_ratios", "copy_segments", "gainloss", "breaks"):
         if listkey in out_fnames:
             output[listkey] = [dxpy.dxlink(dxpy.upload_local_file(fname))
                                for fname in out_fnames[listkey]]
@@ -67,30 +68,33 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
 
 
 def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
-               access, annotation, do_parallel):
+               access, annotation, antitarget_avg_size, target_avg_size,
+               drop_low_coverage, do_parallel):
     """Run the CNVkit pipeline.
 
     Returns a dict of the generated file names.
     """
-    yflag = "-y" if is_male_normal else ""
-
     print("Running the main CNVkit pipeline")
-    command = ["cnvkit.py batch", yflag]
-    if do_parallel:
-        command.append("-p 0")
+    command = ["cnvkit.py", "batch"]
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
     if reference:
+        # Use the givne reference
         command.extend(["-r", reference])
-        print("Determining if the given reference profile is male or female")
-        if shout("cnvkit.py gender", reference, "| cut -f 2"
-                ).strip() == "Male":
-            print("Looks like a male reference")
-            yflag = "-y"
+        # if not is_male_normal:
+        #     print("Determining if the given reference profile is male or female")
+        #     if shout("cnvkit.py", "gender", reference, "| cut -f 2"
+        #             ).strip() == "Male":
+        #         print("Looks like a male reference")
+        #         is_male_normal = True
     else:
+        # Build a new reference
         reference = safe_fname("cnv-reference", "cnn")
-        command.extend(["--output-reference", reference, "-n"])
+        command.extend(["--output-reference", reference,
+                        "--antitarget-avg-size", antitarget_avg_size,
+                        "--target-avg-size", target_avg_size,
+                        "-n"])
         if normal_bams:
             command.extend(normal_bams)
         if baits:
@@ -99,12 +103,15 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
             command.extend(["-f", fasta])
             if not access:
                 access = safe_fname("access-10k", "bed")
-                sh("cnvkit.py access -s 10000", fasta,
-                   "-o", access)
+                sh("cnvkit.py", "access", fasta, "-s", "10000", "-o", access)
         if access:
             command.extend(["-g", access])
         if annotation:
             command.extend(["--annotate", annotation])
+    # if drop_low_coverage:
+    #     command.append("--drop-low-coverage")
+    command.append("-p 0" if do_parallel else "-p 1")
+    yflag = "-y" if is_male_normal else ""
     command.append(yflag)
 
     sh(*command)
@@ -116,6 +123,13 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
 
     all_cnr = glob("*.cnr")
     all_cns = glob("*.cns")
+    if drop_low_coverage:
+        # This will be a "batch" option in CNVkit 0.8, but for now, need to
+        # repeat segmentation with this option
+        for acnr, acns in zip(all_cnr, all_cns):
+            os.remove(acns)
+            sh("cnvkit.py", "segment", acnr, "-o", acns, "--drop-low-coverage")
+
     all_gainloss = []
     all_breaks = []
     all_nexus = []
@@ -123,23 +137,23 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
         name = acnr.split('.')[0]
 
         gainloss = name + "-gainloss.csv"
-        sh("cnvkit.py gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
+        sh("cnvkit.py", "gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
            "-o", gainloss)
         all_gainloss.append(gainloss)
 
         breaks = name + "-breaks.csv"
-        sh("cnvkit.py breaks", acnr, acns, "-m 3", "-o", breaks)
+        sh("cnvkit.py", "breaks", acnr, acns, "-m 3", "-o", breaks)
         all_breaks.append(breaks)
 
-        nexus = name + ".nexus"
-        sh("cnvkit.py export nexus-basic", name + ".cnr", "-o", nexus)
-        all_nexus.append(nexus)
+    seg = safe_fname("cn_segments", ".seg")
+    sh("cnvkit.py", "export", "seg", " ".join(all_cns), "-o", seg)
+    all_nexus.append(seg)
 
     genders = safe_fname("gender", "csv")
-    sh("cnvkit.py gender", yflag, "-o", genders, *all_cnr)
+    sh("cnvkit.py", "gender", yflag, "-o", genders, *all_cnr)
 
-    metrics = safe_fname("metrics", "csv" if len(all_cnr) > 1 else "txt")
-    sh("cnvkit.py metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
+    metrics = safe_fname("metrics", "csv")
+    sh("cnvkit.py", "metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
        "-o", metrics)
 
     outputs = {
@@ -148,7 +162,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
         "copy_segments": all_cns,
         "gainloss": all_gainloss,
         "breaks": all_breaks,
-        "nexus_cn": all_nexus,
+        "seg": seg,
         "metrics": metrics,
         "genders": genders,
     }
