@@ -16,6 +16,8 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
          annotation=None, antitarget_avg_size=200000, target_avg_size=267,
          drop_low_coverage=False, do_parallel=True):
 
+    if not tumor_bams and not normal_bams:
+        raise dxpy.AppError("Must provide tumor_bams or normal_bams (or both)")
     if cn_reference and any((normal_bams, baits, fasta, access, annotation)):
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
                             "alongside normal_bams, baits, fasta, access "
@@ -80,7 +82,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
     if reference:
-        # Use the givne reference
+        # Use the given reference
         command.extend(["-r", reference])
         # if not is_male_normal:
         #     print("Determining if the given reference profile is male or female")
