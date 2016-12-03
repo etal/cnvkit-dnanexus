@@ -104,8 +104,8 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
             command.extend(["-f", fasta])
         if annotation:
             command.extend(["--annotate", annotation])
-    # if drop_low_coverage:
-    #     command.append("--drop-low-coverage")
+    if drop_low_coverage:
+        command.append("--drop-low-coverage")
     command.append("-p 0" if do_parallel else "-p 1")
     yflag = "-y" if is_male_normal else ""
     command.append(yflag)
@@ -119,13 +119,6 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
 
     all_cnr = glob("*.cnr")
     all_cns = glob("*.cns")
-    if drop_low_coverage:
-        # This will be a "batch" option in CNVkit 0.8, but for now, need to
-        # repeat segmentation with this option
-        for acnr, acns in zip(all_cnr, all_cns):
-            os.remove(acns)
-            sh("cnvkit.py", "segment", acnr, "-o", acns, "--drop-low-coverage")
-
     all_gainloss = []
     all_breaks = []
     all_nexus = []
