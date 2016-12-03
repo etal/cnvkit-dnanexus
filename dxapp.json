@@ -3,14 +3,14 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from targeted sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.7.11",
+  "version": "0.8.1",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.7.11",
+    "upstreamVersion": "0.8.1",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
@@ -42,14 +42,6 @@
       "optional": true
     },
     {
-      "name": "is_male_normal",
-      "label": "Male reference?",
-      "help": "Assume or create a male-normal reference? Determines the expected chrX ploidy.",
-      "class": "boolean",
-      "default": true,
-      "optional": true
-    },
-    {
       "name": "baits",
       "label": "Baited regions",
       "help": "Baited (tiled, targeted) genomic regions, in BED or GATK/Picard-style interval list format. Required to construct a new reference.",
@@ -66,14 +58,6 @@
       "optional": true
     },
     {
-      "name": "access",
-      "label": "Accessible regions",
-      "help": "Sequencing-accessible genomic regions, matching the reference genome. If not given, but fasta is, then these regions will be inferred from the fasta input (masked chromosome sequences).",
-      "class": "file",
-      "patterns": [ "*.bed", "*.list", "*.interval_list" ],
-      "optional": true
-    },
-    {
       "name": "annotation",
       "label": "Gene annotation",
       "help": "UCSC genome annotation database file, e.g. refFlat.txt for the RefSeq annotation of your reference genome. Used to apply gene names to targets/baits, if the 'baits' BED file does not have a fourth column of region names.",
@@ -82,17 +66,20 @@
       "optional": true
     },
     {
-      "name": "antitarget_avg_size",
-      "label": "Average off-target bin size",
-      "class": "int",
-      "default": 200000,
+      "name": "method",
+      "label": "Sequencing method",
+      "help": "Target capture method, if any: 'hybrid' (hybridization capture; the default), 'amplicon' (targeted amplicon capture), or 'wgs' (whole genome sequencing -- no capture step)",
+      "class": "string",
+      "choices": ["wgs", "amplicon", "hybrid"],
+      "default": "hybrid",
       "optional": true
     },
     {
-      "name": "target_avg_size",
-      "label": "Average on-target bin size",
-      "class": "int",
-      "default": 267,
+      "name": "is_male_normal",
+      "label": "Male reference?",
+      "help": "Assume or create a male-normal reference? Determines the expected chrX ploidy.",
+      "class": "boolean",
+      "default": true,
       "optional": true
     },
     {
@@ -101,6 +88,20 @@
       "help": "In tumor samples, very-low-coverage bins generally indicate poorly sequenced regions rather than copy number. This option removes those bins before segmentation.",
       "class": "boolean",
       "default": false,
+      "optional": true
+    },
+    {
+      "name": "antitarget_avg_size",
+      "label": "Average off-target bin size",
+      "class": "int",
+      "default": 150000,
+      "optional": true
+    },
+    {
+      "name": "target_avg_size",
+      "label": "Average on-target bin size",
+      "class": "int",
+      "default": 267,
       "optional": true
     },
     {
@@ -198,6 +199,6 @@
         "main": {"instanceType": "mem2_ssd1_x8"}
     }
   },
-  "openSource": "true",
+  "openSource": true,
   "authorizedUsers": ["PUBLIC"]
 }

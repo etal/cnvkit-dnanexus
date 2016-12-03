@@ -12,15 +12,15 @@ import dxpy
 
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
-         is_male_normal=True, baits=None, fasta=None, access=None,
-         annotation=None, antitarget_avg_size=200000, target_avg_size=267,
-         drop_low_coverage=False, do_parallel=True):
+         baits=None, fasta=None, annotation=None,
+         method='hybrid', is_male_normal=True, drop_low_coverage=False,
+         antitarget_avg_size=150000, target_avg_size=267, do_parallel=True):
 
     if not tumor_bams and not normal_bams:
         raise dxpy.AppError("Must provide tumor_bams or normal_bams (or both)")
-    if cn_reference and any((normal_bams, baits, fasta, access, annotation)):
+    if cn_reference and any((normal_bams, baits, fasta, annotation)):
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
-                            "alongside normal_bams, baits, fasta, access "
+                            "alongside normal_bams, baits, fasta, "
                             "or annotation")
     if tumor_bams and not any((baits, cn_reference)):
         raise dxpy.AppError("Need cn_reference or baits to process tumor_bams")
@@ -39,7 +39,6 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     cn_reference = download_link(cn_reference)
     baits = download_link(baits)
     fasta = download_link(fasta)
-    access = download_link(access)
     annotation = download_link(annotation)
     if tumor_bams is not None:
         tumor_bams = map(download_link, tumor_bams)
@@ -50,10 +49,10 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     fasta = maybe_gunzip(fasta, "ref", "fa")
     annotation = maybe_gunzip(annotation, "annot", "txt")
 
-    out_fnames = run_cnvkit(tumor_bams, normal_bams, cn_reference,
-                            is_male_normal, baits, fasta, access, annotation,
-                            antitarget_avg_size, target_avg_size,
-                            drop_low_coverage, do_parallel)
+    out_fnames = run_cnvkit(tumor_bams, normal_bams, cn_reference, baits,
+                            fasta, annotation, method, is_male_normal,
+                            drop_low_coverage, antitarget_avg_size,
+                            target_avg_size, do_parallel)
 
     print("Uploading local file outputs to the DNAnexus platform")
     output = {}
@@ -69,15 +68,15 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     return output
 
 
-def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
-               access, annotation, antitarget_avg_size, target_avg_size,
-               drop_low_coverage, do_parallel):
+def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
+               method, is_male_normal, drop_low_coverage, antitarget_avg_size,
+               target_avg_size, do_parallel):
     """Run the CNVkit pipeline.
 
     Returns a dict of the generated file names.
     """
     print("Running the main CNVkit pipeline")
-    command = ["cnvkit.py", "batch"]
+    command = ["cnvkit.py", "batch", "-m", method]
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
@@ -100,14 +99,9 @@ def run_cnvkit(tumor_bams, normal_bams, reference, is_male_normal, baits, fasta,
         if normal_bams:
             command.extend(normal_bams)
         if baits:
-            command.extend(["-t", baits, "--split", "--short-names"])
+            command.extend(["-t", baits, "--short-names"])
         if fasta:
             command.extend(["-f", fasta])
-            if not access:
-                access = safe_fname("access-10k", "bed")
-                sh("cnvkit.py", "access", fasta, "-s", "10000", "-o", access)
-        if access:
-            command.extend(["-g", access])
         if annotation:
             command.extend(["--annotate", annotation])
     # if drop_low_coverage:
