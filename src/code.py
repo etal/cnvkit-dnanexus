@@ -5,6 +5,7 @@ import magic
 import os
 import subprocess
 import tempfile
+import psutil
 from glob import glob
 
 import dxpy
@@ -24,16 +25,6 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
                             "or annotation")
     if tumor_bams and not any((baits, cn_reference)):
         raise dxpy.AppError("Need cn_reference or baits to process tumor_bams")
-
-    # Set R library path (pre-build packages are bundled here)
-    # eg. "/home/dnanexus/R/x86_64-pc-linux-gnu-library/3.0/"
-    os.environ["R_LIBS_USER"] = "/".join([os.environ["HOME"],
-                                          "R/x86_64-pc-linux-gnu-library",
-                                          "3.0"])
-    # Install the Python dependencies, then the package itself
-    sh("pip install -v --no-index --find-links=file:///wheelhouse -r /requirements.txt")
-    sh("pip install -v --no-index --find-links=file:///wheelhouse --no-deps cnvkit")
-    sh("chmod +x /usr/local/bin/cnvkit.py")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
@@ -75,6 +66,12 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
 
     Returns a dict of the generated file names.
     """
+
+    def cnvkit_docker(*args):
+        sh("mkdir -p /workdir")
+        docker_prefix = ["dx-docker", "run", "-v", "/home/dnanexus:/workdir", "-w", "/workdir", "etal/cnvkit:0.8.0"]
+        sh(*(docker_prefix + list(args)))
+
     print("Running the main CNVkit pipeline")
     command = ["cnvkit.py", "batch", "-m", method]
     if tumor_bams:
@@ -83,12 +80,6 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
     if reference:
         # Use the given reference
         command.extend(["-r", reference])
-        # if not is_male_normal:
-        #     print("Determining if the given reference profile is male or female")
-        #     if shout("cnvkit.py", "gender", reference, "| cut -f 2"
-        #             ).strip() == "Male":
-        #         print("Looks like a male reference")
-        #         is_male_normal = True
     else:
         # Build a new reference
         reference = safe_fname("cnv-reference", "cnn")
@@ -106,11 +97,11 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
             command.extend(["--annotate", annotation])
     if drop_low_coverage:
         command.append("--drop-low-coverage")
-    command.append("-p 0" if do_parallel else "-p 1")
+    command.append("-p {}".format(psutil.cpu_count(logical=False)))
     yflag = "-y" if is_male_normal else ""
     command.append(yflag)
 
-    sh(*command)
+    cnvkit_docker(*command)
     sh("ls -Altr")  # Show the generated files in the DNAnexus log
 
     # Collect the outputs
@@ -126,24 +117,22 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
         name = acnr.split('.')[0]
 
         gainloss = name + "-gainloss.csv"
-        sh("cnvkit.py", "gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
-           "-o", gainloss)
+        cnvkit_docker("cnvkit.py", "gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag, "-o", gainloss)
         all_gainloss.append(gainloss)
 
         breaks = name + "-breaks.csv"
-        sh("cnvkit.py", "breaks", acnr, acns, "-m 3", "-o", breaks)
+        cnvkit_docker("cnvkit.py", "breaks", acnr, acns, "-m 3", "-o", breaks)
         all_breaks.append(breaks)
 
     seg = safe_fname("cn_segments", ".seg")
-    sh("cnvkit.py", "export", "seg", " ".join(all_cns), "-o", seg)
+    cnvkit_docker("cnvkit.py", "export", "seg", " ".join(all_cns), "-o", seg)
     all_nexus.append(seg)
 
     genders = safe_fname("gender", "csv")
-    sh("cnvkit.py", "gender", yflag, "-o", genders, *all_cnr)
+    cnvkit_docker("cnvkit.py", "gender", yflag, "-o", genders, *all_cnr)
 
     metrics = safe_fname("metrics", "csv")
-    sh("cnvkit.py", "metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
-       "-o", metrics)
+    cnvkit_docker("cnvkit.py", "metrics", " ".join(all_cnr), "-s", " ".join(all_cns), "-o", metrics)
 
     outputs = {
         "cn_reference": reference,

@@ -181,17 +181,7 @@
     "interpreter": "python2.7",
     "file": "src/code.py",
     "execDepends": [
-      {"name": "poppler-utils"},
-      {"name": "python-biopython"},
-      {"name": "python-dateutil"},
-      {"name": "python-matplotlib"},
-      {"name": "python-numpy"},
-      {"name": "python-reportlab"},
-      {"name": "python-scipy"},
-      {"name": "python-tk"},
-      {"name": "python-tz"},
-      {"name": "python-wheel"},
-      {"name": "r-recommended"}
+      {"name": "poppler-utils"}
     ],
     "distribution":  "Ubuntu",
     "release":  "14.04",
@@ -200,5 +190,8 @@
     }
   },
   "openSource": true,
+  "access": {
+    "network": ["*"]
+  },
   "authorizedUsers": ["PUBLIC"]
 }
