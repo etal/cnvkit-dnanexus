@@ -1,16 +1,16 @@
 {
   "name": "cnvkit_batch",
   "title": "CNVkit",
-  "summary": "Call copy number variants from targeted sequencing, and/or build a reference profile",
+  "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.8.1",
+    "upstreamVersion": "0.8.2",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
@@ -181,13 +181,13 @@
     "interpreter": "python2.7",
     "file": "src/code.py",
     "execDepends": [
+      {"name": "libblas3"},
+      {"name": "liblapack3"},
       {"name": "poppler-utils"},
       {"name": "python-biopython"},
       {"name": "python-dateutil"},
       {"name": "python-matplotlib"},
-      {"name": "python-numpy"},
       {"name": "python-reportlab"},
-      {"name": "python-scipy"},
       {"name": "python-tk"},
       {"name": "python-tz"},
       {"name": "python-wheel"},

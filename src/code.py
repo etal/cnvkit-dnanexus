@@ -31,9 +31,9 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
                                           "R/x86_64-pc-linux-gnu-library",
                                           "3.0"])
     # Install the Python dependencies, then the package itself
-    sh("pip install -v --no-index --find-links=file:///wheelhouse -r /requirements.txt")
-    sh("pip install -v --no-index --find-links=file:///wheelhouse --no-deps cnvkit")
-    sh("chmod +x /usr/local/bin/cnvkit.py")
+    sh("pip install -v --user --no-index --find-links=file:///wheelhouse -r /requirements.txt")
+    sh("pip install -v --user --no-index --find-links=file:///wheelhouse --no-deps cnvkit")
+    sh("chmod +x ~/.local/bin/cnvkit.py")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
@@ -76,19 +76,13 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
     Returns a dict of the generated file names.
     """
     print("Running the main CNVkit pipeline")
-    command = ["cnvkit.py", "batch", "-m", method]
+    command = ["batch", "-m", method]
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
     if reference:
         # Use the given reference
         command.extend(["-r", reference])
-        # if not is_male_normal:
-        #     print("Determining if the given reference profile is male or female")
-        #     if shout("cnvkit.py", "gender", reference, "| cut -f 2"
-        #             ).strip() == "Male":
-        #         print("Looks like a male reference")
-        #         is_male_normal = True
     else:
         # Build a new reference
         reference = safe_fname("cnv-reference", "cnn")
@@ -110,7 +104,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
     yflag = "-y" if is_male_normal else ""
     command.append(yflag)
 
-    sh(*command)
+    cnvkit(*command)
     sh("ls -Altr")  # Show the generated files in the DNAnexus log
 
     # Collect the outputs
@@ -126,23 +120,22 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
         name = acnr.split('.')[0]
 
         gainloss = name + "-gainloss.csv"
-        sh("cnvkit.py", "gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
-           "-o", gainloss)
+        cnvkit("gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag, "-o", gainloss)
         all_gainloss.append(gainloss)
 
         breaks = name + "-breaks.csv"
-        sh("cnvkit.py", "breaks", acnr, acns, "-m 3", "-o", breaks)
+        cnvkit("breaks", acnr, acns, "-m 3", "-o", breaks)
         all_breaks.append(breaks)
 
     seg = safe_fname("cn_segments", ".seg")
-    sh("cnvkit.py", "export", "seg", " ".join(all_cns), "-o", seg)
+    cnvkit("export", "seg", " ".join(all_cns), "-o", seg)
     all_nexus.append(seg)
 
     genders = safe_fname("gender", "csv")
-    sh("cnvkit.py", "gender", yflag, "-o", genders, *all_cnr)
+    cnvkit("gender", yflag, "-o", genders, *all_cnr)
 
     metrics = safe_fname("metrics", "csv")
-    sh("cnvkit.py", "metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
+    cnvkit("metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
        "-o", metrics)
 
     outputs = {
@@ -220,7 +213,11 @@ def sh(*command):
     """Run a shell command."""
     cmd = " ".join(map(str, command))
     print("$", cmd)
-    subprocess.check_call(cmd, shell=True)
+    try:
+        subprocess.check_call(cmd, shell=True)
+    except subprocess.CalledProcessError as exc:
+        check_files(command[1:])
+        raise exc
     print()
 
 
@@ -228,9 +225,33 @@ def shout(*command):
     """Run a shell command and capture standard output."""
     cmd = " ".join(map(str, command))
     print("$", cmd)
-    result = subprocess.check_output(cmd, shell=True)
+    try:
+        result = subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError as exc:
+        check_files(command[1:])
+        raise exc
     print()
     return result
+
+
+def check_files(maybe_filenames):
+    import shlex
+    fnames = []
+    for fname in maybe_filenames:
+        if isinstance(fname, basestring):
+            fnames.extend(shlex.split(fname))
+    for fname in fnames:
+        if '.' in fname:
+            # It might be a filename
+            if os.path.exists(fname):
+                print("File:", os.path.abspath(fname))
+            else:
+                print("Not file:", os.path.abspath(fname))
+
+
+def cnvkit(*command):
+    """Run a CNVkit sub-command."""
+    sh('python', '~/.local/bin/cnvkit.py', *command)
 
 
 # _____________________________________________________________________________
