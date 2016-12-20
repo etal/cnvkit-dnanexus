@@ -72,7 +72,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
         sh(*(docker_prefix + list(args)))
 
     print("Running the main CNVkit pipeline")
-    command = ["cnvkit.py", "batch", "-m", method]
+    command = ["batch", "-m", method]
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
@@ -208,7 +208,11 @@ def sh(*command):
     """Run a shell command."""
     cmd = " ".join(map(str, command))
     print("$", cmd)
-    subprocess.check_call(cmd, shell=True)
+    try:
+        subprocess.check_call(cmd, shell=True)
+    except subprocess.CalledProcessError as exc:
+        check_files(command[1:])
+        raise exc
     print()
 
 
@@ -216,9 +220,33 @@ def shout(*command):
     """Run a shell command and capture standard output."""
     cmd = " ".join(map(str, command))
     print("$", cmd)
-    result = subprocess.check_output(cmd, shell=True)
+    try:
+        result = subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError as exc:
+        check_files(command[1:])
+        raise exc
     print()
     return result
+
+
+def check_files(maybe_filenames):
+    import shlex
+    fnames = []
+    for fname in maybe_filenames:
+        if isinstance(fname, basestring):
+            fnames.extend(shlex.split(fname))
+    for fname in fnames:
+        if '.' in fname:
+            # It might be a filename
+            if os.path.exists(fname):
+                print("File:", os.path.abspath(fname))
+            else:
+                print("Not file:", os.path.abspath(fname))
+
+
+def cnvkit(*command):
+    """Run a CNVkit sub-command."""
+    sh('python', '~/.local/bin/cnvkit.py', *command)
 
 
 # _____________________________________________________________________________
