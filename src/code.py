@@ -10,7 +10,6 @@ from glob import glob
 
 import dxpy
 
-
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
          baits=None, fasta=None, annotation=None,
@@ -97,7 +96,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
             command.extend(["--annotate", annotation])
     if drop_low_coverage:
         command.append("--drop-low-coverage")
-    command.append("-p {}".format(psutil.cpu_count(logical=False)))
+    command.append("-p {}".format(psutil.cpu_count(logical=True)))
     yflag = "-y" if is_male_normal else ""
     command.append(yflag)
 
