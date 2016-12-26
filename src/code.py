@@ -68,11 +68,11 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
 
     def cnvkit_docker(*args):
         sh("mkdir -p /workdir")
-        docker_prefix = ["dx-docker", "run", "-v", "/home/dnanexus:/workdir", "-w", "/workdir", "etal/cnvkit:0.8.0"]
+        docker_prefix = ["dx-docker", "run", "-v", "/home/dnanexus:/workdir", "-w", "/workdir", "etal/cnvkit:0.8.2"]
         sh(*(docker_prefix + list(args)))
 
     print("Running the main CNVkit pipeline")
-    command = ["batch", "-m", method]
+    command = ["cnvkit.py", "batch", "-m", method]
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
