@@ -181,18 +181,9 @@
     "interpreter": "python2.7",
     "file": "src/code.py",
     "execDepends": [
-      {"name": "libblas3"},
-      {"name": "liblapack3"},
-      {"name": "poppler-utils"},
-      {"name": "python-biopython"},
-      {"name": "python-dateutil"},
-      {"name": "python-matplotlib"},
-      {"name": "python-reportlab"},
-      {"name": "python-tk"},
-      {"name": "python-tz"},
-      {"name": "python-wheel"},
-      {"name": "r-recommended"}
+      {"name": "poppler-utils"}
     ],
+    "assetDepends": [{"id": "record-F1QgVF00K2XPY92JPPPyZ0Y9"}],
     "distribution":  "Ubuntu",
     "release":  "14.04",
     "systemRequirements": {
@@ -200,5 +191,8 @@
     }
   },
   "openSource": true,
+  "access": {
+    "network": ["*"]
+  },
   "authorizedUsers": ["PUBLIC"]
 }
