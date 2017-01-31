@@ -65,14 +65,10 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
 
     Returns a dict of the generated file names.
     """
-
-    def cnvkit_docker(*args):
-        sh("mkdir -p /workdir")
-        docker_prefix = ["dx-docker", "run", "-v", "/home/dnanexus:/workdir", "-w", "/workdir", "etal/cnvkit:0.8.2"]
-        sh(*(docker_prefix + list(args)))
+    sh("mkdir -p /workdir")
 
     print("Running the main CNVkit pipeline")
-    command = ["cnvkit.py", "batch", "-m", method]
+    command = ["batch", "-m", method]
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
@@ -96,7 +92,8 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
             command.extend(["--annotate", annotation])
     if drop_low_coverage:
         command.append("--drop-low-coverage")
-    command.append("-p {}".format(psutil.cpu_count(logical=True)))
+    if do_parallel:
+        command.extend(["-p", str(psutil.cpu_count(logical=True))])
     yflag = "-y" if is_male_normal else ""
     command.append(yflag)
 
@@ -116,22 +113,22 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
         name = acnr.split('.')[0]
 
         gainloss = name + "-gainloss.csv"
-        cnvkit_docker("cnvkit.py", "gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag, "-o", gainloss)
+        cnvkit_docker("gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag, "-o", gainloss)
         all_gainloss.append(gainloss)
 
         breaks = name + "-breaks.csv"
-        cnvkit_docker("cnvkit.py", "breaks", acnr, acns, "-m 3", "-o", breaks)
+        cnvkit_docker("breaks", acnr, acns, "-m 3", "-o", breaks)
         all_breaks.append(breaks)
 
     seg = safe_fname("cn_segments", ".seg")
-    cnvkit_docker("cnvkit.py", "export", "seg", " ".join(all_cns), "-o", seg)
+    cnvkit_docker("export", "seg", " ".join(all_cns), "-o", seg)
     all_nexus.append(seg)
 
     genders = safe_fname("gender", "csv")
-    cnvkit_docker("cnvkit.py", "gender", yflag, "-o", genders, *all_cnr)
+    cnvkit_docker("gender", yflag, "-o", genders, *all_cnr)
 
     metrics = safe_fname("metrics", "csv")
-    cnvkit_docker("cnvkit.py", "metrics", " ".join(all_cnr), "-s", " ".join(all_cns), "-o", metrics)
+    cnvkit_docker("metrics", " ".join(all_cnr), "-s", " ".join(all_cns), "-o", metrics)
 
     outputs = {
         "cn_reference": reference,
@@ -216,19 +213,6 @@ def sh(*command):
     print()
 
 
-def shout(*command):
-    """Run a shell command and capture standard output."""
-    cmd = " ".join(map(str, command))
-    print("$", cmd)
-    try:
-        result = subprocess.check_output(cmd, shell=True)
-    except subprocess.CalledProcessError as exc:
-        check_files(command[1:])
-        raise exc
-    print()
-    return result
-
-
 def check_files(maybe_filenames):
     import shlex
     fnames = []
@@ -244,9 +228,13 @@ def check_files(maybe_filenames):
                 print("Not file:", os.path.abspath(fname))
 
 
-def cnvkit(*command):
+def cnvkit_docker(*args):
     """Run a CNVkit sub-command."""
-    sh('python', '~/.local/bin/cnvkit.py', *command)
+    docker_prefix = ["dx-docker", "run", "etal/cnvkit:0.8.2",
+                        "-v", "/home/dnanexus:/workdir",
+                        "-w", "/workdir",
+                        "cnvkit.py"]
+    sh(*(docker_prefix + list(args)))
 
 
 # _____________________________________________________________________________
