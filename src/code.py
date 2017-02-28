@@ -230,10 +230,9 @@ def check_files(maybe_filenames):
 
 def cnvkit_docker(*args):
     """Run a CNVkit sub-command."""
-    docker_prefix = ["dx-docker", "run", "etal/cnvkit:0.8.3",
-                        "-v", "/home/dnanexus:/workdir",
-                        "-w", "/workdir",
-                        "cnvkit.py"]
+    docker_prefix = ["dx-docker", "run",
+                     "-v", "/home/dnanexus:/workdir", "-w", "/workdir",
+                     "etal/cnvkit:0.8.3", "cnvkit.py"]
     sh(*(docker_prefix + list(args)))
 
 
