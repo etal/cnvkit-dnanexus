@@ -3,14 +3,14 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.8.3",
+    "upstreamVersion": "0.9.0",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
     "contactEmail": [ "eric.talevich@ucsf.edu" ],
@@ -159,8 +159,9 @@
       "optional": true
     },
     {
-      "name": "genders",
-      "label": "Genders (guessed)",
+      "name": "sexes",
+      "label": "Sample sexes (guessed)",
+      "help": "Chromosomal sex of each sample, inferred from X- and Y-chromosome coverages",
       "class": "file",
       "optional": true
     },
@@ -183,7 +184,6 @@
     "execDepends": [
       {"name": "poppler-utils"}
     ],
-    "assetDepends": [{"id": "record-F2pG4Q80g01BP00Z31Z1qvGp"}],
     "distribution":  "Ubuntu",
     "release":  "14.04",
     "systemRequirements": {
