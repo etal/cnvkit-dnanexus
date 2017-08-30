@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 from __future__ import division, print_function
 
-import magic
 import os
+import shlex
 import subprocess
 import tempfile
-import psutil
 from glob import glob
 
+import magic
+import psutil
+
 import dxpy
+
 
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
@@ -46,7 +49,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
 
     print("Uploading local file outputs to the DNAnexus platform")
     output = {}
-    for filekey in ("cn_reference", "seg", "metrics", "genders", "scatter_pdf",
+    for filekey in ("cn_reference", "seg", "metrics", "sexes", "scatter_pdf",
                     "diagram_pdf"):
         if filekey in out_fnames:
             output[filekey] = dxpy.dxlink(
@@ -124,8 +127,8 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
     cnvkit_docker("export", "seg", " ".join(all_cns), "-o", seg)
     all_nexus.append(seg)
 
-    genders = safe_fname("gender", "csv")
-    cnvkit_docker("gender", yflag, "-o", genders, *all_cnr)
+    sexes = safe_fname("sex", "csv")
+    cnvkit_docker("sex", yflag, "-o", sexes, *all_cnr)
 
     metrics = safe_fname("metrics", "csv")
     cnvkit_docker("metrics", " ".join(all_cnr), "-s", " ".join(all_cns), "-o", metrics)
@@ -138,7 +141,7 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
         "breaks": all_breaks,
         "seg": seg,
         "metrics": metrics,
-        "genders": genders,
+        "sexes": sexes,
     }
 
     all_scatters = glob("*-scatter.pdf")
@@ -214,7 +217,6 @@ def sh(*command):
 
 
 def check_files(maybe_filenames):
-    import shlex
     fnames = []
     for fname in maybe_filenames:
         if isinstance(fname, basestring):
@@ -232,7 +234,7 @@ def cnvkit_docker(*args):
     """Run a CNVkit sub-command."""
     docker_prefix = ["dx-docker", "run",
                      "-v", "/home/dnanexus:/workdir", "-w", "/workdir",
-                     "etal/cnvkit:0.8.3", "cnvkit.py"]
+                     "etal/cnvkit:0.9.0", "cnvkit.py"]
     sh(*(docker_prefix + list(args)))
 
 
