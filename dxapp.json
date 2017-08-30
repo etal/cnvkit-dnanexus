@@ -84,7 +84,7 @@
     },
     {
       "name": "drop_low_coverage",
-      "label": "Drop low-coverage bins?",
+      "label": "Filter out very-low-coverage bins?",
       "help": "In tumor samples, very-low-coverage bins generally indicate poorly sequenced regions rather than copy number. This option removes those bins before segmentation.",
       "class": "boolean",
       "default": false,
@@ -94,14 +94,26 @@
       "name": "antitarget_avg_size",
       "label": "Average off-target bin size",
       "class": "int",
-      "default": 150000,
       "optional": true
     },
     {
       "name": "target_avg_size",
       "label": "Average on-target bin size",
       "class": "int",
-      "default": 267,
+      "optional": true
+    },
+    {
+      "name": "purity",
+      "label": "Estimated tumor purity",
+      "label": "Fraction, 0--1, of cells in each test sample that are lesional, rather than immune or normal-cell contamination. For germline samples, this is 1.0 and does not need to be specified.",
+      "class": "array:float",
+      "optional": true
+    },
+    {
+      "name": "ploidy",
+      "label": "Autosome ploidy",
+      "help": "Number of copies of each chromosome expected in normal cells (excluding sex chromosomes and mitochondria). For humans, this is 2.",
+      "class": "array:int",
       "optional": true
     },
     {

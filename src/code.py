@@ -17,8 +17,8 @@ import dxpy
 def main(tumor_bams=None, normal_bams=None, cn_reference=None,
          baits=None, fasta=None, annotation=None,
          method='hybrid', is_male_normal=True, drop_low_coverage=False,
-         antitarget_avg_size=150000, target_avg_size=267, do_parallel=True):
-
+         antitarget_avg_size=None, target_avg_size=None,
+         purity=None, ploidy=None, do_parallel=True):
     if not tumor_bams and not normal_bams:
         raise dxpy.AppError("Must provide tumor_bams or normal_bams (or both)")
     if cn_reference and any((normal_bams, baits, fasta, annotation)):
@@ -45,7 +45,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     out_fnames = run_cnvkit(tumor_bams, normal_bams, cn_reference, baits,
                             fasta, annotation, method, is_male_normal,
                             drop_low_coverage, antitarget_avg_size,
-                            target_avg_size, do_parallel)
+                            target_avg_size, purity, ploidy, do_parallel)
 
     print("Uploading local file outputs to the DNAnexus platform")
     output = {}
@@ -63,7 +63,7 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
 
 def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
                method, is_male_normal, drop_low_coverage, antitarget_avg_size,
-               target_avg_size, do_parallel):
+               target_avg_size, purity, ploidy, do_parallel):
     """Run the CNVkit pipeline.
 
     Returns a dict of the generated file names.
@@ -82,8 +82,6 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
         # Build a new reference
         reference = safe_fname("cnv-reference", "cnn")
         command.extend(["--output-reference", reference,
-                        "--antitarget-avg-size", antitarget_avg_size,
-                        "--target-avg-size", target_avg_size,
                         "-n"])
         if normal_bams:
             command.extend(normal_bams)
@@ -93,6 +91,10 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
             command.extend(["-f", fasta])
         if annotation:
             command.extend(["--annotate", annotation])
+        if antitarget_avg_size:
+            command.extend(["--antitarget-avg-size", antitarget_avg_size])
+        if target_avg_size:
+            command.extend(["--target-avg-size", target_avg_size])
     if drop_low_coverage:
         command.append("--drop-low-coverage")
     if do_parallel:
@@ -126,6 +128,11 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
     seg = safe_fname("cn_segments", ".seg")
     cnvkit_docker("export", "seg", " ".join(all_cns), "-o", seg)
     all_nexus.append(seg)
+
+    # TODO run 'call' with purity, ploidy
+    # TODO take VCF(s) as input, & pass to 'call' for BAF
+    if purity or ploidy:
+        pass
 
     sexes = safe_fname("sex", "csv")
     cnvkit_docker("sex", yflag, "-o", sexes, *all_cnr)
