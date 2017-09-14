@@ -34,6 +34,14 @@
       "optional": true
     },
     {
+      "name": "vcfs",
+      "label": "SNV calls (VCF)",
+      "help": "Variant calls for each tumor sample, including germline SNPs. See formatting guidelines: https://cnvkit.readthedocs.io/en/stable/fileformats.html#vcf",
+      "class": "array:file",
+      "patterns": [ "*.vcf", "*.vcf.gz" ],
+      "optional": true
+    },
+    {
       "name": "cn_reference",
       "label": "Copy number reference",
       "help": "Reference profile (.cnn), previously built using CNVkit. If given, this will be used directly to call CNVs in the given tumor samples; none of the other inputs apply in this case.",
@@ -105,7 +113,7 @@
     {
       "name": "purity",
       "label": "Estimated tumor purity",
-      "label": "Fraction, 0--1, of cells in each test sample that are lesional, rather than immune or normal-cell contamination. For germline samples, this is 1.0 and does not need to be specified.",
+      "help": "Fraction, 0--1, of cells in each test sample that are lesional, rather than immune or normal-cell contamination. For germline samples, this is 1.0 and does not need to be specified.",
       "class": "array:float",
       "optional": true
     },
@@ -197,10 +205,7 @@
       {"name": "poppler-utils"}
     ],
     "distribution":  "Ubuntu",
-    "release":  "14.04",
-    "systemRequirements": {
-        "main": {"instanceType": "mem2_ssd1_x8"}
-    }
+    "release":  "14.04"
   },
   "regionalOptions": {
     "azure:westus": {

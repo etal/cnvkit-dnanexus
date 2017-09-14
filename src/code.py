@@ -14,7 +14,7 @@ import dxpy
 
 
 @dxpy.entry_point('main')
-def main(tumor_bams=None, normal_bams=None, cn_reference=None,
+def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
          baits=None, fasta=None, annotation=None,
          method='hybrid', is_male_normal=True, drop_low_coverage=False,
          antitarget_avg_size=None, target_avg_size=None,
@@ -27,6 +27,12 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
                             "or annotation")
     if tumor_bams and not any((baits, cn_reference)):
         raise dxpy.AppError("Need cn_reference or baits to process tumor_bams")
+    if tumor_bams:
+        purities = validate_per_tumor(purity, len(tumor_bams), "purity values",
+                                      lambda p: 0 < p <= 1)
+        ploidies = validate_per_tumor(ploidy, len(tumor_bams), "ploidy values",
+                                      lambda p: p > 0)
+        vcfs = validate_per_tumor(vcfs, len(tumor_bams), "VCF files")
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
@@ -42,10 +48,10 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     fasta = maybe_gunzip(fasta, "ref", "fa")
     annotation = maybe_gunzip(annotation, "annot", "txt")
 
-    out_fnames = run_cnvkit(tumor_bams, normal_bams, cn_reference, baits,
+    out_fnames = run_cnvkit(tumor_bams, normal_bams, vcfs, cn_reference, baits,
                             fasta, annotation, method, is_male_normal,
                             drop_low_coverage, antitarget_avg_size,
-                            target_avg_size, purity, ploidy, do_parallel)
+                            target_avg_size, purities, ploidies, do_parallel)
 
     print("Uploading local file outputs to the DNAnexus platform")
     output = {}
@@ -61,9 +67,37 @@ def main(tumor_bams=None, normal_bams=None, cn_reference=None,
     return output
 
 
-def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
-               method, is_male_normal, drop_low_coverage, antitarget_avg_size,
-               target_avg_size, purity, ploidy, do_parallel):
+def validate_per_tumor(values, n_expected, title, criterion=None):
+    """Ensure a per-tumor input array matches the number of tumor BAMs, etc.
+
+    Also allow a value of None to skip checks & downstream processing, or a
+    single value to apply to every tumor sample.
+
+    Returns: list of values the same length as `n_expected`.
+    """
+    if values is None:
+        out_vals = [None] * n_expected
+    else:
+        if criterion is not None and not all(map(criterion, values)):
+            raise dxpy.AppError(
+                """Tumor {} must all be between 0 and 1; got: {}"""
+                .format(title, values))
+        if len(values) == n_expected:
+            out_vals = values
+        elif len(values) == 1 and n_expected > 1:
+            out_vals = [values] * n_expected
+        else:
+            raise dxpy.AppError(
+                """Number of tumor {} specified ({}) does not
+                match the number of tumor BAM files given ({})"""
+                .format(title, len(values), n_expected))
+    return out_vals
+
+
+def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
+               annotation, method, is_male_normal, drop_low_coverage,
+               antitarget_avg_size, target_avg_size, purities, ploidies,
+               do_parallel):
     """Run the CNVkit pipeline.
 
     Returns a dict of the generated file names.
@@ -111,28 +145,51 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
 
     all_cnr = glob("*.cnr")
     all_cns = glob("*.cns")
+    if not len(all_cnr) == len(all_cns):
+        raise dxpy.AppError(
+            "Segmentation failed silently, try running again with "
+            "do_parallel=false and see logs")
+
     all_gainloss = []
     all_breaks = []
-    all_nexus = []
-    for acnr, acns in zip(all_cnr, all_cns):
+    all_segmetrics = []
+    all_call = []
+    for acnr, acns, vcf, purity, ploidy in zip(all_cnr, all_cns, vcfs,
+                                               purities, ploidies):
         name = acnr.split('.')[0]
 
-        gainloss = name + "-gainloss.csv"
-        cnvkit_docker("gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag, "-o", gainloss)
+        gainloss = name + ".gainloss.csv"
+        cnvkit_docker("gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
+                      "-o", gainloss)
         all_gainloss.append(gainloss)
 
-        breaks = name + "-breaks.csv"
+        breaks = name + ".breaks.csv"
         cnvkit_docker("breaks", acnr, acns, "-m 3", "-o", breaks)
         all_breaks.append(breaks)
 
-    seg = safe_fname("cn_segments", ".seg")
-    cnvkit_docker("export", "seg", " ".join(all_cns), "-o", seg)
-    all_nexus.append(seg)
+        segmetrics = name + ".segmetrics.cns"
+        cnvkit_docker("segmetrics", acnr, "-s", acns, "--ci -a .1",
+                      "-o", segmetrics)
+        all_segmetrics.append(segmetrics)
 
-    # TODO run 'call' with purity, ploidy
-    # TODO take VCF(s) as input, & pass to 'call' for BAF
-    if purity or ploidy:
-        pass
+        call_fname = name + ".call.cns"
+        call_opts = ["call", segmetrics, "-o", call_fname,
+                     yflag, "--filter", "ci", "--center"]
+        if purity or ploidy:
+            call_opts.append("-m clonal")
+            if purity:
+                call_opts.extend("--purity", purity)
+            if ploidy:
+                call_opts.extend("--ploidy", ploidy)
+        else:
+            call_opts.append("-m threshold")
+        if vcf:
+            call_opts.extend("--vcf", vcf)
+        cnvkit_docker(*call_opts)
+        all_call.append(call_fname)
+
+    seg = safe_fname("cn_segments", "seg")
+    cnvkit_docker("export seg", " ".join(all_cns), "-o", seg)
 
     sexes = safe_fname("sex", "csv")
     cnvkit_docker("sex", yflag, "-o", sexes, *all_cnr)
@@ -143,12 +200,12 @@ def run_cnvkit(tumor_bams, normal_bams, reference, baits, fasta, annotation,
     outputs = {
         "cn_reference": reference,
         "copy_ratios": all_cnr,
-        "copy_segments": all_cns,
+        "copy_segments": all_segmetrics,
         "gainloss": all_gainloss,
         "breaks": all_breaks,
         "seg": seg,
-        "metrics": metrics,
         "sexes": sexes,
+        "metrics": metrics,
     }
 
     all_scatters = glob("*-scatter.pdf")
