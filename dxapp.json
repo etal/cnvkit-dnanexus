@@ -210,15 +210,15 @@
   "regionalOptions": {
     "azure:westus": {
         "systemRequirements": {"*": {"instanceType": "azure:mem2_ssd1_x8"}},
-        "assetDepends": [{"id": "record-F6Q7q0Q9YK5Fz8xGK8Z640xB"}]
+        "assetDepends": [{"id": "record-F79JpjQ93YY9485f56yqXKPJ"}]
     },
     "aws:us-east-1": {
         "systemRequirements": {"*": {"instanceType": "mem2_ssd1_x8"}},
-        "assetDepends": [{"id": "record-F6P0b2Q0g01P4K9VPXkJbQjg"}]
+        "assetDepends": [{"id": "record-F79G1k00g017G0kJP4Q6b1F3"}]
     },
     "aws:cn-north-1": {
         "systemRequirements": {"*": {"instanceType": "mem2_ssd1_x8"}},
-        "assetDepends": [{"id": "record-F6Q7pF82FVBgG4v680F087x2"}]
+        "assetDepends": [{"id": "record-F79JvVQ2GK79p0Pf3ZXBBG4Y"}]
     }
   },
   "openSource": true,
