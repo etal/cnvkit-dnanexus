@@ -1,17 +1,3 @@
-# Copyright (C) 2017 DNAnexus, Inc.
-#
-#   Licensed under the Apache License, Version 2.0 (the "License"); you may
-#   not use this file except in compliance with the License. You may obtain a
-#   copy of the License at
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#   Unless required by applicable law or agreed to in writing, software
-#   distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#   License for the specific language governing permissions and limitations
-#   under the License.
-
 from __future__ import print_function
 import argparse
 import subprocess
@@ -50,6 +36,7 @@ def _parse_args():
     ap.add_argument('--regions',
                     help='Regions to clone asset into.  Permitted regions are:\n[{0}]'.format(', '.join(SUPPORTED_REGIONS)),
                     choices=SUPPORTED_REGIONS,
+                    default=SUPPORTED_REGIONS,
                     nargs='+',
                     metavar='',
                     required=False)
@@ -137,16 +124,17 @@ def clone_asset(record_id, regions, num_retries=0, priority=None):
     corresponding asset as the values.  If an asset is not able to be created in a given
     region, the value will be set to None.
     """
+    # Get the asset record
+    record = dxpy.DXRecord(record_id)
+    fid = record.get_details()['archiveFileId']['$dnanexus_link']
+    curr_region = dxpy.describe(record.project)['region']
+
     # Only run once per region
-    regions = set(regions)
+    regions = set(regions) - set([curr_region])
     app_supported_regions = set(CLONE_ASSET_APP.describe()['regionalOptions'].keys())
     if len(regions - app_supported_regions) > 0:
         print('Currently no support for the following region(s): [{0}]'.format(', '.join(regions - app_supported_regions)), file=sys.stderr)
         sys.exit(1)
-
-    # Get the asset record
-    record = dxpy.DXRecord(record_id)
-    fid = record.get_details()['archiveFileId']['$dnanexus_link']
 
     # Get information about the asset
     record_name = record.name
