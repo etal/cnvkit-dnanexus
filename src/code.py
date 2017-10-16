@@ -43,6 +43,8 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         tumor_bams = map(download_link, tumor_bams)
     if normal_bams is not None:
         normal_bams = map(download_link, normal_bams)
+    if vcfs is not None:
+        vcfs = map(download_link, vcfs)
 
     # If these input files are gzipped, decompress them
     fasta = maybe_gunzip(fasta, "ref", "fa")
