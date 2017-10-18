@@ -25,7 +25,7 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
                             "alongside normal_bams, baits, fasta, "
                             "or annotation")
-    if tumor_bams and not any((baits, cn_reference)):
+    if method != "wgs" and tumor_bams and not any((baits, cn_reference)):
         raise dxpy.AppError("Need cn_reference or baits to process tumor_bams")
     if tumor_bams:
         purities = validate_per_tumor(purity, len(tumor_bams), "purity values",
