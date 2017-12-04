@@ -300,7 +300,7 @@ def cnvkit_docker(*args):
     """Run a CNVkit sub-command."""
     docker_prefix = ["dx-docker", "run",
                      "-v", "/home/dnanexus:/workdir", "-w", "/workdir",
-                     "etal/cnvkit:0.9.0", "cnvkit.py"]
+                     "etal/cnvkit:0.9.1", "cnvkit.py"]
     sh(*(docker_prefix + list(args)))
 
 
