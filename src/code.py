@@ -190,13 +190,13 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
         cnvkit_docker(*call_opts)
         all_call.append(call_fname)
 
-    seg = safe_fname("cn_segments", "seg")
+    seg = safe_fname("cnv-segments", "seg")
     cnvkit_docker("export seg", " ".join(all_cns), "-o", seg)
 
-    sexes = safe_fname("sex", "csv")
+    sexes = safe_fname("cnv-sex", "csv")
     cnvkit_docker("sex", yflag, "-o", sexes, *all_cnr)
 
-    metrics = safe_fname("metrics", "csv")
+    metrics = safe_fname("cnv-metrics", "csv")
     cnvkit_docker("metrics", " ".join(all_cnr), "-s", " ".join(all_cns), "-o", metrics)
 
     outputs = {
