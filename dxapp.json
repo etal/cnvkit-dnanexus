@@ -36,7 +36,7 @@
     {
       "name": "vcfs",
       "label": "SNV calls (VCF)",
-      "help": "Variant calls for each tumor sample, including germline SNPs. See formatting guidelines: https://cnvkit.readthedocs.io/en/stable/fileformats.html#vcf",
+      "help": "Variant calls for each tumor sample, including germline SNPs. Must be in the same order as the tumor BAMs. See VCF formatting guidelines: https://cnvkit.readthedocs.io/en/stable/fileformats.html#vcf",
       "class": "array:file",
       "patterns": [ "*.vcf", "*.vcf.gz" ],
       "optional": true
