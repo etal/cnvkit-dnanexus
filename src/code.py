@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import tempfile
 from glob import glob
+from os.path import basename, isfile
 
 import magic
 import psutil
@@ -111,6 +112,7 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
     if tumor_bams:
         command.extend(tumor_bams)
         command.extend(["--scatter", "--diagram"])
+        sample_ids = [fbase(f) for f in tumor_bams]
     if reference:
         # Use the given reference
         command.extend(["-r", reference])
@@ -145,9 +147,14 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
     if not tumor_bams:
         return {"cn_reference": reference}
 
-    all_cnr = glob("*.cnr")
-    all_cns = glob("*.cns")
-    if not len(all_cnr) == len(all_cns):
+    all_cnr = [sid + ".cnr" for sid in sample_ids]
+    if not all(isfile(f) for f in all_cnr):
+        raise dxpy.AppError(
+            "CNVkit failed silently, try running again with "
+            "do_parallel=false and see logs")
+
+    all_cns = [sid + ".cns" for sid in sample_ids]
+    if not all(isfile(f) for f in all_cns):
         raise dxpy.AppError(
             "Segmentation failed silently, try running again with "
             "do_parallel=false and see logs")
@@ -156,25 +163,24 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
     all_breaks = []
     all_segmetrics = []
     all_call = []
-    for acnr, acns, vcf, purity, ploidy in zip(all_cnr, all_cns, vcfs,
-                                               purities, ploidies):
-        name = acnr.split('.')[0]
+    for sid, cnr, cns, vcf, purity, ploidy in zip(sample_ids, all_cnr, all_cns,
+                                                  vcfs, purities, ploidies):
 
-        gainloss = name + ".gainloss.csv"
-        cnvkit_docker("gainloss", acnr, "-s", acns, "-m 3 -t 0.3", yflag,
+        gainloss = sid + ".gainloss.csv"
+        cnvkit_docker("gainloss", cnr, "-s", cns, "-m 3 -t 0.3", yflag,
                       "-o", gainloss)
         all_gainloss.append(gainloss)
 
-        breaks = name + ".breaks.csv"
-        cnvkit_docker("breaks", acnr, acns, "-m 3", "-o", breaks)
+        breaks = sid + ".breaks.csv"
+        cnvkit_docker("breaks", cnr, cns, "-m 3", "-o", breaks)
         all_breaks.append(breaks)
 
-        segmetrics = name + ".segmetrics.cns"
-        cnvkit_docker("segmetrics", acnr, "-s", acns, "--ci -a .1",
+        segmetrics = sid + ".segmetrics.cns"
+        cnvkit_docker("segmetrics", cnr, "-s", cns, "--ci -a .1",
                       "-o", segmetrics)
         all_segmetrics.append(segmetrics)
 
-        call_fname = name + ".call.cns"
+        call_fname = sid + ".call.cns"
         call_opts = ["call", segmetrics, "-o", call_fname,
                      yflag, "--filter", "ci", "--center"]
         if purity or ploidy:
@@ -250,7 +256,25 @@ def download_link(dxlink):
         return fname
 
 
+def fbase(fname):
+    """Strip directory and extensions from a filename, just like CNVkit."""
+    base = basename(fname)
+    # Gzip extension usually follows another extension
+    if base.endswith('.gz'):
+        base = base[:-3]
+    # Cases to drop more than just the last dot
+    for ext in ('.recal.bam', '.deduplicated.realign.bam'):
+        if base.endswith(ext):
+            base = base[:-len(ext)]
+            break
+    else:
+        # By default, just drop the last part of the extension
+        base = base.rsplit('.', 1)[0]
+    return base
+
+
 def maybe_gunzip(fname, base, ext):
+    """Unpack a gzipped file, if necessary."""
     if fname and 'gzip' in magic.from_file(fname):
         newf = safe_fname(base, ext)
         sh("gunzip", fname, "-c >", newf)
@@ -283,6 +307,7 @@ def sh(*command):
 
 
 def check_files(maybe_filenames):
+    """Log whether or not each input is an existing file."""
     fnames = []
     for fname in maybe_filenames:
         if isinstance(fname, basestring):
