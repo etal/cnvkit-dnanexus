@@ -34,6 +34,8 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         ploidies = validate_per_tumor(ploidy, len(tumor_bams), "ploidy values",
                                       lambda p: p > 0)
         vcfs = validate_per_tumor(vcfs, len(tumor_bams), "VCF files")
+    else:
+        purities = ploidies = None
 
     print("Downloading file inputs to the local file system")
     cn_reference = download_link(cn_reference)
