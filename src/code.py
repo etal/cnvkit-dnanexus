@@ -185,6 +185,8 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
         call_fname = sid + ".call.cns"
         call_opts = ["call", segmetrics, "-o", call_fname,
                      yflag, "--filter", "ci", "--center"]
+        if vcf:
+            call_opts.extend(["--vcf", vcf])
         if purity or ploidy:
             call_opts.append("-m clonal")
             if purity:
@@ -193,8 +195,6 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
                 call_opts.extend(["--ploidy", ploidy])
         else:
             call_opts.append("-m threshold")
-        if vcf:
-            call_opts.extend(["--vcf", vcf])
         cnvkit_docker(*call_opts)
         all_call.append(call_fname)
 
