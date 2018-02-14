@@ -218,7 +218,7 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
         "metrics": metrics,
     }
 
-    all_scatters = glob("*-scatter.pdf")
+    all_scatters = sorted(glob("*-scatter.pdf"))
     if all_scatters:
         if len(all_scatters) == 1:
             scatter_pdf = all_scatters[0]
@@ -227,7 +227,7 @@ def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
             sh("pdfunite", " ".join(all_scatters), scatter_pdf)
         outputs["scatter_pdf"] = scatter_pdf
 
-    all_diagrams = glob("*-diagram.pdf")
+    all_diagrams = sorted(glob("*-diagram.pdf"))
     if all_diagrams:
         if len(all_diagrams) == 1:
             diagram_pdf = all_diagrams[0]
