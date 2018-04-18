@@ -5,8 +5,9 @@ import os
 import shlex
 import subprocess
 import tempfile
-from glob import glob
+#from glob import glob
 from os.path import basename, isfile
+import re
 
 import magic
 import psutil
@@ -17,17 +18,37 @@ import dxpy
 @dxpy.entry_point('main')
 def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
          baits=None, fasta=None, annotation=None,
-         method='hybrid', is_male_normal=True, drop_low_coverage=False,
+         method='hybrid', is_male_normal=False, drop_low_coverage=False,
          antitarget_avg_size=None, target_avg_size=None,
          purity=None, ploidy=None, do_parallel=True):
-    if not tumor_bams and not normal_bams:
-        raise dxpy.AppError("Must provide tumor_bams or normal_bams (or both)")
-    if cn_reference and any((normal_bams, baits, fasta, annotation)):
-        raise dxpy.AppError("Reference profile (cn_reference) cannot be used "
-                            "alongside normal_bams, baits, fasta, "
-                            "or annotation")
-    if method != "wgs" and tumor_bams and not any((baits, cn_reference)):
-        raise dxpy.AppError("Need cn_reference or baits to process tumor_bams")
+    # TODO rename args:
+    #   tumor_bams -> case_bams
+    #   is_male_normal -> haploid_x_reference (v.0.9.2)
+    cnvkit_docker("version")
+
+    # Validate inputs
+    # (from cnvlib.commands._cmd_batch)
+    if cn_reference:
+        bad_flags = [flag
+                     for is_used, flag in (
+                         (normal_bams is not None,  'normal_bams'),
+                         (fasta,                    'fasta'),
+                         (baits,                    'baits'),
+                         (annotation,               'annotation'),
+                         (target_avg_size,          'target_avg_size'),
+                         (antitarget_avg_size,      'antitarget_avg_size'),
+                         #(short_names,              'short_names'),
+                         )
+                     if is_used]
+        if bad_flags:
+            raise dxpy.AppError(
+                    "If 'cn_reference' is given, options to construct a new "
+                    "reference (%s) should not be used:" % ", ".join(bad_flags))
+    elif method in ('hybrid', 'amplicon') and not baits:
+        raise dxpy.AppError(
+                "For the '%r' sequencing method, input 'baits' (at least) "
+                "must be given to build a new reference if 'cn_reference' "
+                "is not given." % baits)
     if tumor_bams:
         purities = validate_per_tumor(purity, len(tumor_bams), "purity values",
                                       lambda p: 0 < p <= 1)
@@ -36,39 +57,86 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         vcfs = validate_per_tumor(vcfs, len(tumor_bams), "VCF files")
     else:
         purities = ploidies = None
+    sh("mkdir -p /workdir")
 
-    print("Downloading file inputs to the local file system")
-    cn_reference = download_link(cn_reference)
-    baits = download_link(baits)
-    fasta = download_link(fasta)
-    annotation = download_link(annotation)
-    if tumor_bams is not None:
-        tumor_bams = map(download_link, tumor_bams)
-    if normal_bams is not None:
-        normal_bams = map(download_link, normal_bams)
-    if vcfs is not None:
-        vcfs = map(download_link, vcfs)
+    # If reference is not given, create one
+    if not cn_reference:
+        print("** About to call 'make_region_beds'")  # DBG
+        targets, antitargets = make_region_beds(
+                normal_bams, method, fasta, baits, annotation,
+                antitarget_avg_size, target_avg_size)
+        print("** Finished calling 'make_region_beds'")  # DBG
+        normal_cvgs = []
+        if normal_bams:
+            # 'coverage' of each normal bam in a subjob
+            for nbam in normal_bams:
+                print("** About to launch 'run_coverage'")  # DBG
+                job_cvg = dxpy.new_dxjob(fn_name='run_coverage',
+                        fn_input={
+                            'bam': nbam,
+                            'targets': targets,
+                            'antitargets': antitargets,
+                            'do_parallel': do_parallel,
+                            })
+                normal_cvgs.append(job_cvg.get_output_ref('coverages'))
+                print("** Got output ref from 'run_coverage'")  # DBG
+        print("** About to launch 'run_reference'")  # DBG
+        job_ref = dxpy.new_dxjob(fn_name='run_reference',
+                fn_input={'coverages': normal_cvgs,
+                          'fasta': fasta,
+                          'targets': targets,
+                          'antitargets': (antitargets
+                              if method == 'hybrid' else None),
+                          'haploid_x_reference': is_male_normal,
+                          })
+        cn_reference = job_ref.get_output_ref('cn_reference')
+        print("** Got output ref from 'run_reference'")  # DBG
+    output = {'cn_reference': cn_reference,
+              'copy_ratios': [], 'copy_segments': [],
+              'gainloss': [], 'breaks': [],
+             }
 
-    # If these input files are gzipped, decompress them
-    fasta = maybe_gunzip(fasta, "ref", "fa")
-    annotation = maybe_gunzip(annotation, "annot", "txt")
+    # Process each test/case/tumor individually using the given/built reference
+    if tumor_bams:
+        print("** About to process", len(tumor_bams), "'tumor_bams'")  # DBG
+        diagram_pdfs = []
+        scatter_pdfs = []
+        for sample_bam, vcf, purity, ploidy in \
+                zip(tumor_bams, vcfs, purities, ploidies):
+            print("** About to launch 'run_sample'")  # DBG
+            job_sample = dxpy.new_dxjob(fn_name='run_sample',
+                    fn_input={
+                        'sample_bam': sample_bam,
+                        'method': method,
+                        'cn_reference': cn_reference,
+                        'vcf': vcf,
+                        'purity': purity,
+                        'ploidy': ploidy,
+                        'drop_low_coverage': drop_low_coverage,
+                        'haploid_x_reference': is_male_normal,
+                        'do_parallel': do_parallel,
+                        })
+            for field in ('copy_ratios', 'copy_segments', 'gainloss', 'breaks'):
+                output[field].append(job_sample.get_output_ref(field))
+            diagram_pdfs.append(job_sample.get_output_ref('diagram'))
+            scatter_pdfs.append(job_sample.get_output_ref('scatter'))
+            print("** Got outputs from 'run_sample'")  # DBG
 
-    out_fnames = run_cnvkit(tumor_bams, normal_bams, vcfs, cn_reference, baits,
-                            fasta, annotation, method, is_male_normal,
-                            drop_low_coverage, antitarget_avg_size,
-                            target_avg_size, purities, ploidies, do_parallel)
+        # Consolidate multi-sample outputs
+        print("** About to launch 'aggregate_outputs'")  # DBG
+        job_agg = dxpy.new_dxjob(fn_name='aggregate_outputs',
+                fn_input={'copy_ratios': output['copy_ratios'],
+                          'copy_segments': output['copy_segments'],
+                          'haploid_x_reference': is_male_normal})
+        for field in ('seg', 'heatmap_pdf', 'metrics', 'sexes'):
+            output[field] = job_agg.get_output_ref(field)
+        output['diagram_pdf'] = concat_pdfs_link(diagram_pdfs, 'diagrams')
+        output['scatter_pdf'] = concat_pdfs_link(scatter_pdfs, 'scatters')
+        print("** Got outputs from 'aggregate_outputs'")  # DBG
 
-    print("Uploading local file outputs to the DNAnexus platform")
-    output = {}
-    for filekey in ("cn_reference", "seg", "metrics", "sexes", "scatter_pdf",
-                    "diagram_pdf"):
-        if filekey in out_fnames:
-            output[filekey] = dxpy.dxlink(
-                dxpy.upload_local_file(out_fnames[filekey]))
-    for listkey in ("copy_ratios", "copy_segments", "gainloss", "breaks"):
-        if listkey in out_fnames:
-            output[listkey] = [dxpy.dxlink(dxpy.upload_local_file(fname))
-                               for fname in out_fnames[listkey]]
+    print("** All done! Returning output:")
+    from pprint import pprint
+    pprint(output)
     return output
 
 
@@ -99,144 +167,331 @@ def validate_per_tumor(values, n_expected, title, criterion=None):
     return out_vals
 
 
-def run_cnvkit(tumor_bams, normal_bams, vcfs, reference, baits, fasta,
-               annotation, method, is_male_normal, drop_low_coverage,
-               antitarget_avg_size, target_avg_size, purities, ploidies,
-               do_parallel):
+def make_region_beds(normal_bams, method, fasta, baits, annotation,
+        antitarget_avg_size, target_avg_size):
+    """Quickly calculate reasonable bin sizes from BAM read counts."""
+    sh("mkdir -p /workdir")
+    if method != 'amplicon':
+        # Get 'access' from fasta
+        fa_fname = maybe_gunzip(download_link(fasta), "ref", "fa")
+        access_bed = safe_fname("access", "bed")
+        cmd = ['access', fa_fname, '--output', access_bed]
+        if method == 'wgs':
+            cmd.extend(['--min-gap-size', '100'])
+        cnvkit_docker(*cmd)
+    else:
+        access_bed = None
+
+    if annotation:
+        annot_fname = maybe_gunzip(download_link(annotation), "annot", "txt")
+    else:
+        annot_fname = None
+
+    if baits:
+        bait_bed = download_link(baits)
+    elif method == 'wgs':
+        bait_bed = filter_bed_chroms(access_bed)
+    else:
+        bait_bed = None
+
+    if target_avg_size or not normal_bams:
+        # Use the given bin sizes with 'target' and 'antitarget'
+        # (Or, if no samples, stick with default target size)
+        tgt_bed = safe_fname('targets', 'bed')
+        cmd_tgt = ['target', bait_bed, '--short-names', '--output', tgt_bed]
+        if target_avg_size:
+            cmd_tgt.extend(['--avg-size', target_avg_size])
+        if annotation:
+            cmd_tgt.extend(['--annotate', annot_fname])
+        cnvkit_docker(*cmd_tgt)
+        if method == 'hybrid':
+            anti_bed = safe_fname('antitargets', 'bed')
+            cmd_anti = ['antitarget', bait_bed, '--access', access_bed,
+                        '--output', anti_bed]
+            if antitarget_avg_size:
+                cmd_anti.extend(['--avg-size', antitarget_avg_size])
+            cnvkit_docker(*cmd_anti)
+        else:
+            anti_bed = None
+
+    else:
+        # Estimate bin sizes with 'autobin'
+        # - wgs: targets ignored, access required
+        #       - at this point bait_bed may be == access_bed
+        # - hybrid: targets & access required
+        # - amplicon: targets required, access ignored
+        def midsize_dxfile(refs):
+            dxfiles = [dxpy.DXFile(ref) for ref in refs]
+            if len(dxfiles) == 1:
+                return dxfiles[0]
+            def dxsize(dxfile):
+                """Get file size on the platform by API call."""
+                return dxfile.describe()['size']
+            mid_dx = sorted(dxfiles, key=dxsize)[len(dxfiles) // 2 - 1]
+            return download_link(mid_dx)
+
+        bam_fname = midsize_dxfile(normal_bams)
+        cmd_autobin = ['autobin', bam_fname,
+                       '--method', method, '--short-names']
+        if annotation:
+            cmd_autobin.extend(['--annotate', annot_fname])
+        if baits:
+            cmd_autobin.extend(['--targets', bait_bed])
+            out_fname_base = fbase(bait_bed)
+        if access_bed:
+            cmd_autobin.extend(['--access', access_bed])
+            if not baits:
+                # For WGS
+                #out_fname_base = fbase(access_bed)
+                out_fname_base = fbase(bam_fname)
+        tgt_bed = out_fname_base + '.target.bed'
+        if method == 'hybrid':
+            anti_bed = out_fname_base + '.antitarget.bed'
+        else:
+            anti_bed = None
+        print("** About to run 'autobin' in docker")
+        cnvkit_docker(*cmd_autobin)
+        print("** Ran 'autobin' in docker")
+    print("** About to upload links to", tgt_bed, "and", anti_bed)
+    return upload_link(tgt_bed), upload_link(anti_bed)
+
+
+def filter_bed_chroms(in_bed):
+    """For WGS, don't survey alt contigs in the reference genome."""
+    r_canonical = re.compile("(chr)?(\d+|[XYxy])\t")
+    out_bed = fbase(in_bed) + ".filtered.bed"
+    with open(in_bed) as infile:
+        with open(out_bed, 'w') as outfile:
+            for line in infile:
+                if r_canonical.match(line):
+                    outfile.write(line)
+            did_match = (outfile.tell > 0)
+    if did_match:
+        print("Replacing", in_bed, "with", out_bed,
+              "keeping only canonical contig names")
+        return out_bed
+    print("None of the contig names in", in_bed,
+          "recognized as canonical; won't filter")
+    return in_bed
+
+
+@dxpy.entry_point('run_coverage')
+def run_coverage(bam, targets, antitargets, do_parallel):
+    """Calculate coverage in the given regions from BAM read depths."""
+    sh("mkdir -p /workdir")
+    cmd_base = ['coverage']
+    if do_parallel:
+        cmd_base.extend(['--processes', str(psutil.cpu_count(logical=True))])
+    bam_fname = download_link(bam)
+    target_fname = download_link(targets)
+    sample_id = fbase(bam_fname)
+    tcov_fname = safe_fname(sample_id, "targetcoverage.cnn")
+    cnvkit_docker(*(cmd_base +
+        [bam_fname, target_fname, '--output', tcov_fname]))
+    coverages = [tcov_fname]
+    if antitargets:
+        antitarget_fname = download_link(antitargets)
+        acov_fname = safe_fname(sample_id, "antitargetcoverage.cnn")
+        cnvkit_docker(*(cmd_base +
+            [bam_fname, antitarget_fname, '--output', acov_fname]))
+        coverages.append(acov_fname)
+    return {'coverages': [upload_link(f) for f in coverages]}
+
+
+@dxpy.entry_point('run_reference')
+def run_reference(coverages, fasta, targets, antitargets, haploid_x_reference):
+    """Compile a coverage reference from the given files (normal samples)."""
+    sh("mkdir -p /workdir")
+    fa_fname = maybe_gunzip(download_link(fasta), "ref", "fa")
+    out_fname = safe_fname("cnv-reference", "cnn")
+    cmd = ['reference', '--fasta', fa_fname, '--output', out_fname]
+    if haploid_x_reference:
+        # XXX option has a new name in v0.9.2+
+        #cmd.append('--haploid-x-reference')
+        cmd.append('--male-reference')
+    if coverages:
+        cmd.extend(download_link(f) for f in flatten_dxarray(coverages))
+    else:
+        # Flat reference -- need targets, antitargets
+        cmd.extend(['--targets', download_link(targets)])
+        if antitargets:
+            cmd.extend(['--antitargets', download_link(antitargets)])
+        else:
+            # XXX shim for <=0.9.1
+            anti_fname = safe_fname("anti-MT", ".bed")
+            sh("touch", anti_fname)
+            cmd.extend(['--antitargets', anti_fname])
+    cnvkit_docker(*cmd)
+    return {'cn_reference': upload_link(out_fname)}
+
+
+def flatten_dxarray(listish):
+    """Ensure an array-of-refs is not an array-of-arrays.
+
+    Specifically, a list of job outputs might resolve to a list-of-lists if each
+    job output is itself a list -- but it's hard to know or handle that until
+    the blocking job completes.
+
+    Use this function within the subjob that takes an array as input.
+    """
+    if not isinstance(listish, list):
+        return [listish]
+    out = []
+    for elem in listish:
+        if isinstance(listish, list):
+            out.extend(flatten_dxarray(elem))
+        else:
+            out.append(elem)
+    return out
+
+
+@dxpy.entry_point('run_sample')
+def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
+    drop_low_coverage, haploid_x_reference, do_parallel):
     """Run the CNVkit pipeline.
 
     Returns a dict of the generated file names.
     """
     sh("mkdir -p /workdir")
 
-    print("Running the main CNVkit pipeline")
-    command = ["batch", "-m", method]
-    if tumor_bams:
-        command.extend(tumor_bams)
-        command.extend(["--scatter", "--diagram"])
-        sample_ids = [fbase(f) for f in tumor_bams]
-    if reference:
-        # Use the given reference
-        command.extend(["-r", reference])
-    else:
-        # Build a new reference
-        reference = safe_fname("cnv-reference", "cnn")
-        command.extend(["--output-reference", reference,
-                        "-n"])
-        if normal_bams:
-            command.extend(normal_bams)
-        if baits:
-            command.extend(["-t", baits, "--short-names"])
-        if fasta:
-            command.extend(["-f", fasta])
-        if annotation:
-            command.extend(["--annotate", annotation])
-        if antitarget_avg_size:
-            command.extend(["--antitarget-avg-size", antitarget_avg_size])
-        if target_avg_size:
-            command.extend(["--target-avg-size", target_avg_size])
-    if drop_low_coverage:
-        command.append("--drop-low-coverage")
-    if do_parallel:
-        command.extend(["-p", str(psutil.cpu_count(logical=True))])
-    yflag = "-y" if is_male_normal else ""
-    command.append(yflag)
+    ref_fname = download_link(cn_reference)
+    bam_fname = download_link(sample_bam)
+    sample_id = fbase(bam_fname)
 
-    cnvkit_docker(*command)
+    cmd = ['batch', bam_fname, '--method', method, '--reference', ref_fname,
+           '--scatter', '--diagram']
+    if do_parallel:
+        cmd.extend(['--processes', str(psutil.cpu_count(logical=True))])
+    shared_opts = []
+    if drop_low_coverage:
+        shared_opts.append('--drop-low-coverage')
+    if haploid_x_reference:
+        #shared_opts.append('--haploid-x-reference')
+        shared_opts.append('--male-reference')
+    cmd.extend(shared_opts)
+
+    cnvkit_docker(*cmd)
     sh("ls -Altr")  # Show the generated files in the DNAnexus log
 
-    # Collect the outputs
-    if not tumor_bams:
-        return {"cn_reference": reference}
-
-    all_cnr = [sid + ".cnr" for sid in sample_ids]
-    if not all(isfile(f) for f in all_cnr):
+    cnr_fname = sample_id + ".cnr"
+    cns_fname = sample_id + ".cns"
+    if not isfile(cnr_fname):
         raise dxpy.AppError(
             "CNVkit failed silently, try running again with "
             "do_parallel=false and see logs")
-
-    all_cns = [sid + ".cns" for sid in sample_ids]
-    if not all(isfile(f) for f in all_cns):
+    if not isfile(cns_fname):
         raise dxpy.AppError(
             "Segmentation failed silently, try running again with "
             "do_parallel=false and see logs")
 
-    all_gainloss = []
-    all_breaks = []
-    all_segmetrics = []
-    all_call = []
-    for sid, cnr, cns, vcf, purity, ploidy in zip(sample_ids, all_cnr, all_cns,
-                                                  vcfs, purities, ploidies):
+    # Post-processing
 
-        gainloss = sid + ".gainloss.csv"
-        cnvkit_docker("gainloss", cnr, "-s", cns, "-m 3 -t 0.3", yflag,
-                      "-o", gainloss)
-        all_gainloss.append(gainloss)
+    genemetrics_fname = safe_fname(sample_id, "gainloss.csv")
+    # XXX command has a new name in v0.9.2+
+    gm_cmd = ['gainloss', # 'genemetrics'
+              cnr_fname, '--segment', cns_fname,
+              '--min-probes', '3', '--threshold', '0.3',
+              '--output', genemetrics_fname]
+    gm_cmd.extend(shared_opts)
+    cnvkit_docker(*gm_cmd)
 
-        breaks = sid + ".breaks.csv"
-        cnvkit_docker("breaks", cnr, cns, "-m 3", "-o", breaks)
-        all_breaks.append(breaks)
+    breaks_fname = safe_fname(sample_id, "breaks.csv")
+    cnvkit_docker('breaks', cnr_fname, cns_fname, '--min-probes', '3',
+                  '--output', breaks_fname)
 
-        segmetrics = sid + ".segmetrics.cns"
-        cnvkit_docker("segmetrics", cnr, "-s", cns, "--ci -a .1",
-                      "-o", segmetrics)
-        all_segmetrics.append(segmetrics)
 
-        call_fname = sid + ".call.cns"
-        call_opts = ["call", segmetrics, "-o", call_fname,
-                     yflag, "--filter", "ci", "--center"]
-        if vcf:
-            call_opts.extend(["--vcf", vcf])
-        if purity or ploidy:
-            call_opts.append("-m clonal")
-            if purity:
-                call_opts.extend(["--purity", purity])
-            if ploidy:
-                call_opts.extend(["--ploidy", ploidy])
-        else:
-            call_opts.append("-m threshold")
-        cnvkit_docker(*call_opts)
-        all_call.append(call_fname)
+    sm_fname = safe_fname(sample_id, "segmetrics.cns")
+    sm_cmd = ['segmetrics', cnr_fname, '-s', cns_fname, '--output', sm_fname,
+              '--ci', '--alpha', '0.1',
+              '--bootstrap', '50' if method == 'wgs' else '100']
+    if drop_low_coverage:
+        sm_cmd.append('--drop-low-coverage')
+    cnvkit_docker(*sm_cmd)
 
-    seg = safe_fname("cnv-segments", "seg")
-    cnvkit_docker("export seg", " ".join(all_cns), "-o", seg)
+    call_fname = safe_fname(sample_id, "call.cns")
+    call_cmd = ['call', sm_fname, '--output', call_fname,
+                '--center', '--filter', 'ci']
+    #call_cmd.extend(shared_opts)
+    if haploid_x_reference:
+        #call_cmd.append('--haploid-x-reference')
+        call_cmd.append('--male-reference')
+    if vcf:
+        call_cmd.extend(['--vcf', download_link(vcf)])
+    if purity or ploidy:
+        call_cmd.extend(['--method', 'clonal'])
+        if purity:
+            call_cmd.extend(['--purity', purity])
+        if ploidy:
+            call_cmd.extend(['--ploidy', ploidy])
+    else:
+        call_cmd.extend(['--method', 'threshold'])
+    cnvkit_docker(*call_cmd)
 
-    sexes = safe_fname("cnv-sex", "csv")
-    cnvkit_docker("sex", yflag, "-o", sexes, *all_cnr)
+    return {'copy_ratios': upload_link(cnr_fname),
+            'copy_segments': upload_link(cns_fname),
+            'call_segments': upload_link(call_fname),
+            'gainloss': upload_link(genemetrics_fname),
+            'breaks': upload_link(breaks_fname),
+            'diagram': upload_link(sample_id + '-diagram.pdf'),
+            'scatter': upload_link(sample_id + '-scatter.pdf'),
+           }
 
-    metrics = safe_fname("cnv-metrics", "csv")
-    cnvkit_docker("metrics", " ".join(all_cnr), "-s", " ".join(all_cns), "-o", metrics)
 
-    outputs = {
-        "cn_reference": reference,
-        "copy_ratios": all_cnr,
-        "copy_segments": all_segmetrics,
-        "gainloss": all_gainloss,
-        "breaks": all_breaks,
-        "seg": seg,
-        "sexes": sexes,
-        "metrics": metrics,
-    }
+@dxpy.entry_point('aggregate_outputs')
+def aggregate_outputs(copy_ratios, copy_segments, haploid_x_reference):
+    sh("mkdir -p /workdir")
+    all_cnr = [download_link(cnr) for cnr in copy_ratios]
+    all_cns = [download_link(cns) for cns in copy_segments]
 
-    all_scatters = sorted(glob("*-scatter.pdf"))
-    if all_scatters:
-        if len(all_scatters) == 1:
-            scatter_pdf = all_scatters[0]
-        else:
-            scatter_pdf = safe_fname("cnv-scatters", "pdf")
-            sh("pdfunite", " ".join(all_scatters), scatter_pdf)
-        outputs["scatter_pdf"] = scatter_pdf
+    metrics_fname = safe_fname("cnv-metrics", "csv")
+    cnvkit_docker("metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
+                  "--output", metrics_fname)
 
-    all_diagrams = sorted(glob("*-diagram.pdf"))
-    if all_diagrams:
-        if len(all_diagrams) == 1:
-            diagram_pdf = all_diagrams[0]
-        else:
-            diagram_pdf = safe_fname("cnv-diagrams", "pdf")
-            sh("pdfunite", " ".join(all_diagrams), diagram_pdf)
-        outputs["diagram_pdf"] = diagram_pdf
+    seg_fname = safe_fname("cnv-segments", "seg")
+    cnvkit_docker("export seg", " ".join(all_cns), "--output", seg_fname)
 
+    if len(all_cns) > 1:
+        heat_fname = safe_fname("cnv-heatmap", "pdf")
+        cnvkit_docker("heatmap", "-d", " ".join(all_cns), "--output", heat_fname)
+    else:
+        heat_fname = None
+
+    sex_fname = safe_fname("cnv-sex", "csv")
+    sex_cmd = ["sex", "--output", sex_fname] + all_cnr
+    if haploid_x_reference:
+        #sex_cmd.append("--haploid-x-reference")
+        sex_cmd.append("--male-reference")
+    cnvkit_docker(*sex_cmd)
+
+    outputs = {'metrics': upload_link(metrics_fname),
+               'seg': upload_link(seg_fname),
+               'sexes': upload_link(sex_fname)}
+    if heat_fname:
+        outputs['heatmap_pdf'] = upload_link(heat_fname)
     return outputs
+
+
+@dxpy.entry_point('concat_pdfs')
+def concat_pdfs(pdfs, name): # name="cnv-diagrams"|"cnv-scatters"
+    if not pdfs:
+        out_ref = None
+    elif len(pdfs) == 1:
+        # NB: make sure this operates on the list, not the link/dict
+        out_ref = pdfs[0]
+    else:
+        # Download & concat
+        pdf_fnames = [download_link(f) for f in pdfs]
+        out_fname = safe_fname("cnv-" + name, "pdf")
+        sh("pdfunite", " ".join(pdf_fnames), out_fname)
+        out_ref = upload_link(out_fname)
+    return {"pdf": out_ref}
+
+
+def concat_pdfs_link(pdf_refs, name):
+    job = dxpy.new_dxjob(fn_name='concat_pdfs',
+            fn_input={'pdfs': pdf_refs, 'name': name})
+    return job.get_output_ref('pdf')
+
 
 
 # _____________________________________________________________________________
@@ -247,7 +502,10 @@ def download_link(dxlink):
     If the object is actually None, return None.
     """
     if dxlink is not None:
-        dxf = dxpy.DXFile(dxlink)
+        if isinstance(dxlink, dxpy.DXFile):
+            dxf = dxlink
+        else:
+            dxf = dxpy.DXFile(dxlink)
         fname = dxf.describe()['name']
         if ' ' in fname:
             fname_nospace = fname.replace(' ', '_')
@@ -256,6 +514,12 @@ def download_link(dxlink):
             fname = fname_nospace
         dxpy.download_dxfile(dxf.get_id(), fname)
         return fname
+
+
+def upload_link(fname):
+    """Upload a local file to the DNAnexus platform and return a link."""
+    if fname:
+        return dxpy.dxlink(dxpy.upload_local_file(fname))
 
 
 def fbase(fname):

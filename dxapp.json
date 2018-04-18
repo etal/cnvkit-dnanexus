@@ -3,7 +3,7 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.9.1",
+  "version": "0.9.1.1",
   "categories": [
     "Structural Variation"
   ],
@@ -85,9 +85,9 @@
     {
       "name": "is_male_normal",
       "label": "Male reference?",
-      "help": "Assume or create a male-normal reference? Determines the expected chrX ploidy.",
+      "help": "Assume or create a haploid-X reference? Used to emulate some array CGH platforms.",
       "class": "boolean",
-      "default": true,
+      "default": false,
       "optional": true
     },
     {
@@ -182,6 +182,12 @@
       "name": "sexes",
       "label": "Sample sexes (guessed)",
       "help": "Chromosomal sex of each sample, inferred from X- and Y-chromosome coverages",
+      "class": "file",
+      "optional": true
+    },
+    {
+      "name": "heatmap_pdf",
+      "label": "Heatmap plot (PDF)",
       "class": "file",
       "optional": true
     },
