@@ -148,20 +148,28 @@
     {
       "name": "copy_segments",
       "label": "Copy segments (.cns)",
+      "help": "Segmentation of the bin-level copy ratios (.cnr), with no further processing.",
+      "class": "array:file",
+      "optional": true
+    },
+    {
+      "name": "call_segments",
+      "label": "Filtered segments (.cns)",
+      "help": "Copy segments re-centered and filtered for 50% confidence interval versus neutral copy number. Integer copy numbers are rough estimates and can be improved by supplying 'purity' input values.",
       "class": "array:file",
       "optional": true
     },
     {
       "name": "gainloss",
       "label": "Gain/loss tables (.csv)",
-      "help": "Lists of genes putatively gained or lost in each sample",
+      "help": "Lists of genes putatively gained or lost in each sample, as detected in the filtered segments (call_segments).",
       "class": "array:file",
       "optional": true
     },
     {
       "name": "breaks",
       "label": "Breakpoints tables (.csv)",
-      "help": "Lists of genes containing possible breakpoints in each sample",
+      "help": "Lists of genes containing possible breakpoints in each sample, as detected in the filtered segments (call_segments).",
       "class": "array:file",
       "optional": true
     },
