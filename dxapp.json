@@ -3,7 +3,7 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.9.1.1",
+  "version": "0.9.1.2",
   "categories": [
     "Structural Variation"
   ],
@@ -223,21 +223,22 @@
   },
   "regionalOptions": {
     "azure:westus": {
-        "systemRequirements": {"*": {"instanceType": "azure:mem1_ssd2_x8"}},
+        "systemRequirements": {"*": {"instanceType": "azure:mem1_ssd1_x8"}},
         "assetDepends": [{"id": "record-F8XqyxQ99gk644x25Y43Vf0Q"}]
     },
     "aws:us-east-1": {
-        "systemRequirements": {"*": {"instanceType": "mem1_ssd2_x8"}},
+        "systemRequirements": {"*": {"instanceType": "mem1_ssd1_x8"}},
         "assetDepends": [{"id": "record-F8XqBB80g01JzX3K3fVXkvqY"}]
     },
     "aws:cn-north-1": {
-        "systemRequirements": {"*": {"instanceType": "mem1_ssd2_x8"}},
+        "systemRequirements": {"*": {"instanceType": "mem1_ssd1_x8"}},
         "assetDepends": [{"id": "record-F8Xv0702FbggV4yf8qY1306X"}]
     }
   },
   "openSource": true,
-  "access": {
-    "network": ["*"]
-  },
+  "developers": [
+    "user-etal",
+    "user-etalevich"
+  ],
   "authorizedUsers": ["PUBLIC"]
 }

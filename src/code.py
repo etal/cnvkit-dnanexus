@@ -228,10 +228,9 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
             def dxsize(dxfile):
                 """Get file size on the platform by API call."""
                 return dxfile.describe()['size']
-            mid_dx = sorted(dxfiles, key=dxsize)[len(dxfiles) // 2 - 1]
-            return download_link(mid_dx)
+            return sorted(dxfiles, key=dxsize)[len(dxfiles) // 2 - 1]
 
-        bam_fname = midsize_dxfile(normal_bams)
+        bam_fname = download_link(midsize_dxfile(normal_bams))
         cmd_autobin = ['autobin', bam_fname,
                        '--method', method, '--short-names']
         if annotation:
