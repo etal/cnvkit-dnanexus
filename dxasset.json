@@ -1,0 +1,25 @@
+{
+  "name": "cnvkit_batch",
+  "title": "CNVkit",
+  "description": "Libraries required for CNVkit",
+  "version": "0.9.1",
+  "project": "project-F1QgX500g01F027v3zV9kKFk",
+  "distribution":  "Ubuntu",
+  "release":  "14.04",
+  "ubuntuRelease":  "14.04",
+  "instanceType": "mem1_ssd1_x4",
+  "execDepends": [
+      {"name": "cython", "package_manager": "apt"},
+      {"name": "libfreetype6-dev", "package_manager": "apt"},
+      {"name": "liblzma-dev", "package_manager": "apt"},
+      {"name": "libpng-dev", "package_manager": "apt"},
+      {"name": "libblas-dev", "package_manager": "apt"},
+      {"name": "liblapack-dev", "package_manager": "apt"},
+      {"name": "libgfortran-4.8-dev", "package_manager": "apt"},
+      {"name": "pkg-config", "package_manager": "apt"},
+      {"name": "poppler-utils", "package_manager": "apt"},
+      {"name": "python-dev", "package_manager": "apt"},
+      {"name": "python-numpy", "package_manager": "apt"},
+      {"name": "cnvkit", "package_manager": "pip"}
+  ]
+}
