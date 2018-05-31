@@ -2,7 +2,7 @@
   "name": "cnvkit_batch",
   "title": "CNVkit",
   "description": "Libraries required for CNVkit",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "project": "project-F1QgX500g01F027v3zV9kKFk",
   "distribution":  "Ubuntu",
   "release":  "14.04",
@@ -20,6 +20,6 @@
       {"name": "poppler-utils", "package_manager": "apt"},
       {"name": "python-dev", "package_manager": "apt"},
       {"name": "python-numpy", "package_manager": "apt"},
-      {"name": "cnvkit", "package_manager": "pip"}
+      {"name": "cnvkit", "package_manager": "pip", "version": "0.9.3"}
   ]
 }
