@@ -318,11 +318,6 @@ def run_reference(coverages, fasta, targets, antitargets, haploid_x_reference):
         cmd.extend(['--targets', download_link(targets)])
         if antitargets:
             cmd.extend(['--antitargets', download_link(antitargets)])
-        else:
-            # XXX shim for <=0.9.1
-            anti_fname = safe_fname("anti-MT", ".bed")
-            sh("touch", anti_fname)
-            cmd.extend(['--antitargets', anti_fname])
     cnvkit_docker(*cmd)
     return {'cn_reference': upload_link(out_fname)}
 
@@ -599,7 +594,7 @@ def cnvkit_docker(*args):
     """Run a CNVkit sub-command."""
     docker_prefix = ["dx-docker", "run",
                      "-v", "/home/dnanexus:/workdir", "-w", "/workdir",
-                     "etal/cnvkit:0.9.1", "cnvkit.py"]
+                     "etal/cnvkit:0.9.4", "cnvkit.py"]
     sh(*(docker_prefix + list(args)))
 
 
