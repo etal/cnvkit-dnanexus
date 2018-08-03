@@ -179,6 +179,13 @@
       "optional": true
     },
     {
+      "name": "vcf",
+      "label": "VCF files",
+      "help": "Each sample's CNV segments in VCF format.",
+      "class": "array:file",
+      "optional": true
+    },
+    {
       "name": "seg",
       "label": "SEG table",
       "help": "All samples' CNV segments in SEG format, for use with other programs",

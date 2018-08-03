@@ -116,7 +116,7 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                         'do_parallel': do_parallel,
                         })
             for field in ('copy_ratios', 'copy_segments', 'call_segments',
-                          'gainloss', 'breaks'):
+                          'gainloss', 'breaks', 'vcf'):
                 output[field].append(job_sample.get_output_ref(field))
             diagram_pdfs.append(job_sample.get_output_ref('diagram'))
             scatter_pdfs.append(job_sample.get_output_ref('scatter'))
@@ -397,6 +397,14 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
         sm_cmd.append('--drop-low-coverage')
     cnvkit_docker(*sm_cmd)
 
+    vcf_fname = sample_id + ".vcf"
+    vcf_cmd = ['export', 'vcf', cns_fname, '--output', vcf_fname]
+    if haploid_x_reference:
+        vcf_cmd.append('--haploid-x-reference')
+    if ploidy:
+        vcf_cmd.extend(['--ploidy', ploidy])
+    cnvkit_docker(*vcf_cmd)
+
     call_fname = safe_fname(sample_id, "call.cns")
     call_cmd = ['call', sm_fname, '--output', call_fname,
                 '--center', '--filter', 'ci']
@@ -433,6 +441,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
             'call_segments': upload_link(call_fname),
             'gainloss': upload_link(genemetrics_fname),
             'breaks': upload_link(breaks_fname),
+            'vcf': upload_link(vcf_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
             'scatter': upload_link(sample_id + '-scatter.pdf'),
            }
