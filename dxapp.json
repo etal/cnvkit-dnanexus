@@ -68,9 +68,9 @@
     {
       "name": "annotation",
       "label": "Gene annotation",
-      "help": "UCSC genome annotation database file, e.g. refFlat.txt for the RefSeq annotation of your reference genome. Used to apply gene names to targets/baits, if the 'baits' BED file does not have a fourth column of region names.",
+      "help": "Genome annotation file, e.g. UCSC refFlat.txt, for gene annotation of your reference genome. Used to apply gene names to targets/baits, if the 'baits' BED file does not have a fourth column of region names.",
       "class": "file",
-      "patterns": [ "*.txt" ],
+      "patterns": [ "*.bed", "*.gff", "*.txt" ],
       "optional": true
     },
     {
