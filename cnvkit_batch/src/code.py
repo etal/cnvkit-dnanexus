@@ -92,7 +92,7 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         print("** Got output ref from 'run_reference'")  # DBG
     output = {'cn_reference': cn_reference,
               'copy_ratios': [], 'copy_segments': [], 'call_segments': [],
-              'genemetrics': [], 'breaks': [],
+              'genemetrics': [], 'breaks': [], 'scatters_png': [],
              }
 
     # Process each test/case/tumor individually using the given/built reference

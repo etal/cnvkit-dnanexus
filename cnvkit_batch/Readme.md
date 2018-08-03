@@ -1,5 +1,5 @@
 <!-- dx-header -->
-# CNVkit - single sample (DNAnexus Platform App)
+# CNVkit (DNAnexus Platform App)
 
 Run the CNVkit pipeline to call copy number variants.
 

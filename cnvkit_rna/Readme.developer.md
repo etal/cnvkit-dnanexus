@@ -1,4 +1,4 @@
-# cnvkit_batch Developer Readme
+# cnvkit_rna Developer Readme
 
 <!--
 TODO: Please edit this Readme.developer.md file to include information
@@ -10,8 +10,8 @@ for developers or advanced users, for example:
 
 ## Implementation
 
-This app runs the "batch" command of CNVkit and exposes most of the available
-options.
+This app runs the "import-rna" command of CNVkit and exposes most of the
+available options.
 
 
 ## Running this app with additional computational resources
