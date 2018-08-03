@@ -165,7 +165,7 @@
       "optional": true
     },
     {
-      "name": "gainloss",
+      "name": "genemetrics",
       "label": "Gain/loss tables (.csv)",
       "help": "Lists of genes putatively gained or lost in each sample, as detected in the filtered segments (call_segments).",
       "class": "array:file",
@@ -179,7 +179,7 @@
       "optional": true
     },
     {
-      "name": "vcf",
+      "name": "vcfs",
       "label": "VCF files",
       "help": "Each sample's CNV segments in VCF format.",
       "class": "array:file",

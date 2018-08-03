@@ -92,7 +92,7 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         print("** Got output ref from 'run_reference'")  # DBG
     output = {'cn_reference': cn_reference,
               'copy_ratios': [], 'copy_segments': [], 'call_segments': [],
-              'gainloss': [], 'breaks': [],
+              'genemetrics': [], 'breaks': [],
              }
 
     # Process each test/case/tumor individually using the given/built reference
@@ -116,7 +116,7 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                         'do_parallel': do_parallel,
                         })
             for field in ('copy_ratios', 'copy_segments', 'call_segments',
-                          'gainloss', 'breaks', 'vcf'):
+                          'genemetrics', 'breaks', 'vcfs'):
                 output[field].append(job_sample.get_output_ref(field))
             diagram_pdfs.append(job_sample.get_output_ref('diagram'))
             scatter_pdfs.append(job_sample.get_output_ref('scatter'))
@@ -423,10 +423,8 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
         call_cmd.extend(['--method', 'threshold'])
     cnvkit_docker(*call_cmd)
 
-    genemetrics_fname = safe_fname(sample_id, "gainloss.csv")
-    # XXX command has a new name in v0.9.2+
-    gm_cmd = ['gainloss', # 'genemetrics'
-              cnr_fname, '--segment', call_fname,
+    genemetrics_fname = safe_fname(sample_id, "genemetrics.csv")
+    gm_cmd = ['genemetrics', cnr_fname, '--segment', call_fname,
               '--min-probes', '3', '--threshold', '0.2',
               '--output', genemetrics_fname]
     gm_cmd.extend(shared_opts)
@@ -439,9 +437,9 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     return {'copy_ratios': upload_link(cnr_fname),
             'copy_segments': upload_link(cns_fname),
             'call_segments': upload_link(call_fname),
-            'gainloss': upload_link(genemetrics_fname),
+            'genemetrics': upload_link(genemetrics_fname),
             'breaks': upload_link(breaks_fname),
-            'vcf': upload_link(vcf_fname),
+            'vcfs': upload_link(vcf_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
             'scatter': upload_link(sample_id + '-scatter.pdf'),
            }
