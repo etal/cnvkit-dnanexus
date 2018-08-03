@@ -119,7 +119,6 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                           'genemetrics', 'breaks', 'vcfs'):
                 output[field].append(job_sample.get_output_ref(field))
             diagram_pdfs.append(job_sample.get_output_ref('diagram'))
-            scatter_pdfs.append(job_sample.get_output_ref('scatter'))
             print("** Got outputs from 'run_sample'")  # DBG
 
         # Consolidate multi-sample outputs
@@ -131,7 +130,6 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         for field in ('seg', 'heatmap_pdf', 'metrics', 'sexes'):
             output[field] = job_agg.get_output_ref(field)
         output['diagram_pdf'] = concat_pdfs_link(diagram_pdfs, 'diagrams')
-        output['scatter_pdf'] = concat_pdfs_link(scatter_pdfs, 'scatters')
         print("** Got outputs from 'aggregate_outputs'")  # DBG
 
     print("** All done! Returning output:")
@@ -434,6 +432,9 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     cnvkit_docker('breaks', cnr_fname, call_fname, '--min-probes', '3',
                   '--output', breaks_fname)
 
+    sh("convert {} {}".format(sample_id + "-scatter.pdf",
+                              sample_id + "-scatter.png")
+
     return {'copy_ratios': upload_link(cnr_fname),
             'copy_segments': upload_link(cns_fname),
             'call_segments': upload_link(call_fname),
@@ -441,7 +442,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
             'breaks': upload_link(breaks_fname),
             'vcfs': upload_link(vcf_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
-            'scatter': upload_link(sample_id + '-scatter.pdf'),
+            'scatters': upload_link(sample_id + '-scatter.png'),
            }
 
 
@@ -479,7 +480,7 @@ def aggregate_outputs(copy_ratios, copy_segments, haploid_x_reference):
 
 
 @dxpy.entry_point('concat_pdfs')
-def concat_pdfs(pdfs, name): # name="cnv-diagrams"|"cnv-scatters"
+def concat_pdfs(pdfs, name): # name="cnv-diagrams"
     if not pdfs:
         out_ref = None
     elif len(pdfs) == 1:

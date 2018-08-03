@@ -212,9 +212,10 @@
       "optional": true
     },
     {
-      "name": "scatter_pdf",
-      "label": "Genome plot(s) (PDF)",
-      "class": "file",
+      "name": "scatters_png",
+      "label": "Genome plot(s) (PNG)",
+      "help": "Scatter plot(s) of genome-wide copy number profile, one per test sample.",
+      "class": "array:file",
       "optional": true
     },
     {

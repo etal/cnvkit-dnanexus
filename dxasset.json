@@ -18,6 +18,7 @@
       {"name": "libgfortran-4.8-dev", "package_manager": "apt"},
       {"name": "pkg-config", "package_manager": "apt"},
       {"name": "poppler-utils", "package_manager": "apt"},
+      {"name": "imagemagick", "package_manager": "apt"},
       {"name": "python-dev", "package_manager": "apt"},
       {"name": "python-numpy", "package_manager": "apt"},
       {"name": "cnvkit", "package_manager": "pip", "version": "0.9.3"}
