@@ -18,16 +18,16 @@
   },
   "inputSpec": [
     {
-      "name": "tumor_bams",
-      "label": "Tumor sample mapped reads (BAM)",
-      "help": "Mapped reads for each tumor/test sample, in BAM format. CNVs will be called in these samples.",
+      "name": "case_bams",
+      "label": "Case/test/tumor sample mapped reads (BAM)",
+      "help": "Mapped reads for each case/test/tumor sample, in BAM format. CNVs will be called in these samples.",
       "class": "array:file",
       "patterns": [ "*.bam" ],
       "optional": true
     },
     {
       "name": "normal_bams",
-      "label": "Normal sample mapped reads (BAM)",
+      "label": "Control/normal sample mapped reads (BAM)",
       "help": "Mapped reads for each normal/control sample, in BAM format. Used to construct a new copy number reference. If neither normal_bams nor cn_reference is given, a 'generic' or 'flat' reference will be created with equal expected coverage across the genome.",
       "class": "array:file",
       "patterns": [ "*.bam" ],
@@ -83,9 +83,9 @@
       "optional": true
     },
     {
-      "name": "is_male_normal",
-      "label": "Male reference?",
-      "help": "Assume or create a haploid-X reference? Used to emulate some array CGH platforms.",
+      "name": "haploid_x_reference",
+      "label": "Assume chrX is haploid?",
+      "help": "If true, assume or create a reference where chromosome X is haploid, rather than the default diploid. This option can be used to emulate some array CGH platforms.",
       "class": "boolean",
       "default": false,
       "optional": true
@@ -98,6 +98,11 @@
       "default": false,
       "optional": true
     },
+    {
+      "name": "exclude_access",
+      "label": "Regions to exclude from off-target bins",
+      "class": "array:file",
+      "optional": true
     {
       "name": "antitarget_avg_size",
       "label": "Average off-target bin size",

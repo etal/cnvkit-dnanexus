@@ -16,14 +16,12 @@ import dxpy
 
 
 @dxpy.entry_point('main')
-def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
+def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
          baits=None, fasta=None, annotation=None,
-         method='hybrid', is_male_normal=False, drop_low_coverage=False,
+         method='hybrid', haploid_x_reference=False, drop_low_coverage=False,
+         exclude_access=None,
          antitarget_avg_size=None, target_avg_size=None,
          purity=None, ploidy=None, do_parallel=True):
-    # TODO rename args:
-    #   tumor_bams -> case_bams
-    #   is_male_normal -> haploid_x_reference (v.0.9.2)
     cnvkit_docker("version")
 
     # Validate inputs
@@ -35,6 +33,7 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                          (fasta,                    'fasta'),
                          (baits,                    'baits'),
                          (annotation,               'annotation'),
+                         (exclude_access,           'exclude_access'),
                          (target_avg_size,          'target_avg_size'),
                          (antitarget_avg_size,      'antitarget_avg_size'),
                          #(short_names,              'short_names'),
@@ -49,12 +48,12 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                 "For the '%r' sequencing method, input 'baits' (at least) "
                 "must be given to build a new reference if 'cn_reference' "
                 "is not given." % baits)
-    if tumor_bams:
-        purities = validate_per_tumor(purity, len(tumor_bams), "purity values",
+    if case_bams:
+        purities = validate_per_tumor(purity, len(case_bams), "purity values",
                                       lambda p: 0 < p <= 1)
-        ploidies = validate_per_tumor(ploidy, len(tumor_bams), "ploidy values",
+        ploidies = validate_per_tumor(ploidy, len(case_bams), "ploidy values",
                                       lambda p: p > 0)
-        vcfs = validate_per_tumor(vcfs, len(tumor_bams), "VCF files")
+        vcfs = validate_per_tumor(vcfs, len(case_bams), "VCF files")
     else:
         purities = ploidies = None
     sh("mkdir -p /workdir")
@@ -64,7 +63,7 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         print("** About to call 'make_region_beds'")  # DBG
         targets, antitargets = make_region_beds(
                 normal_bams, method, fasta, baits, annotation,
-                antitarget_avg_size, target_avg_size)
+                exclude_access, antitarget_avg_size, target_avg_size)
         print("** Finished calling 'make_region_beds'")  # DBG
         normal_cvgs = []
         if normal_bams:
@@ -87,7 +86,7 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                           'targets': targets,
                           'antitargets': (antitargets
                               if method == 'hybrid' else None),
-                          'haploid_x_reference': is_male_normal,
+                          'haploid_x_reference': haploid_x_reference,
                           })
         cn_reference = job_ref.get_output_ref('cn_reference')
         print("** Got output ref from 'run_reference'")  # DBG
@@ -97,12 +96,12 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
              }
 
     # Process each test/case/tumor individually using the given/built reference
-    if tumor_bams:
-        print("** About to process", len(tumor_bams), "'tumor_bams'")  # DBG
+    if case_bams:
+        print("** About to process", len(case_bams), "'case_bams'")  # DBG
         diagram_pdfs = []
         scatter_pdfs = []
         for sample_bam, vcf, purity, ploidy in \
-                zip(tumor_bams, vcfs, purities, ploidies):
+                zip(case_bams, vcfs, purities, ploidies):
             print("** About to launch 'run_sample'")  # DBG
             job_sample = dxpy.new_dxjob(fn_name='run_sample',
                     fn_input={
@@ -113,7 +112,7 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                         'purity': purity,
                         'ploidy': ploidy,
                         'drop_low_coverage': drop_low_coverage,
-                        'haploid_x_reference': is_male_normal,
+                        'haploid_x_reference': haploid_x_reference,
                         'do_parallel': do_parallel,
                         })
             for field in ('copy_ratios', 'copy_segments', 'call_segments',
@@ -128,7 +127,7 @@ def main(tumor_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         job_agg = dxpy.new_dxjob(fn_name='aggregate_outputs',
                 fn_input={'copy_ratios': output['copy_ratios'],
                           'copy_segments': output['copy_segments'],
-                          'haploid_x_reference': is_male_normal})
+                          'haploid_x_reference': haploid_x_reference})
         for field in ('seg', 'heatmap_pdf', 'metrics', 'sexes'):
             output[field] = job_agg.get_output_ref(field)
         output['diagram_pdf'] = concat_pdfs_link(diagram_pdfs, 'diagrams')
@@ -169,7 +168,7 @@ def validate_per_tumor(values, n_expected, title, criterion=None):
 
 
 def make_region_beds(normal_bams, method, fasta, baits, annotation,
-        antitarget_avg_size, target_avg_size):
+        exclude_access, antitarget_avg_size, target_avg_size):
     """Quickly calculate reasonable bin sizes from BAM read counts."""
     sh("mkdir -p /workdir")
     if method != 'amplicon':
@@ -177,6 +176,13 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
         fa_fname = maybe_gunzip(download_link(fasta), "ref", "fa")
         access_bed = safe_fname("access", "bed")
         cmd = ['access', fa_fname, '--output', access_bed]
+        if exclude_access:
+            if isinstance(exclude_access, (list, tuple)):
+                for excl in exclude_access:
+                    excl_fname = download_link(excl)
+                    cmd.extend(['--exclude', excl_fname])
+            else:
+                raise dxpy.AppError("Unexpected type: %r" % exclude_access)
         if method == 'wgs':
             cmd.extend(['--min-gap-size', '100'])
         cnvkit_docker(*cmd)
@@ -306,9 +312,7 @@ def run_reference(coverages, fasta, targets, antitargets, haploid_x_reference):
     out_fname = safe_fname("cnv-reference", "cnn")
     cmd = ['reference', '--fasta', fa_fname, '--output', out_fname]
     if haploid_x_reference:
-        # XXX option has a new name in v0.9.2+
-        #cmd.append('--haploid-x-reference')
-        cmd.append('--male-reference')
+        cmd.append('--haploid-x-reference')
     if coverages:
         cmd.extend(download_link(f) for f in flatten_dxarray(coverages))
     else:
@@ -366,8 +370,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     if drop_low_coverage:
         shared_opts.append('--drop-low-coverage')
     if haploid_x_reference:
-        #shared_opts.append('--haploid-x-reference')
-        shared_opts.append('--male-reference')
+        shared_opts.append('--haploid-x-reference')
     cmd.extend(shared_opts)
 
     cnvkit_docker(*cmd)
@@ -399,8 +402,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
                 '--center', '--filter', 'ci']
     #call_cmd.extend(shared_opts)
     if haploid_x_reference:
-        #call_cmd.append('--haploid-x-reference')
-        call_cmd.append('--male-reference')
+        call_cmd.append('--haploid-x-reference')
     if vcf:
         call_cmd.extend(['--vcf', download_link(vcf)])
     if purity or ploidy:
@@ -458,8 +460,7 @@ def aggregate_outputs(copy_ratios, copy_segments, haploid_x_reference):
     sex_fname = safe_fname("cnv-sex", "csv")
     sex_cmd = ["sex", "--output", sex_fname] + all_cnr
     if haploid_x_reference:
-        #sex_cmd.append("--haploid-x-reference")
-        sex_cmd.append("--male-reference")
+        sex_cmd.append("--haploid-x-reference")
     cnvkit_docker(*sex_cmd)
 
     outputs = {'metrics': upload_link(metrics_fname),
