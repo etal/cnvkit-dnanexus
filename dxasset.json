@@ -2,7 +2,7 @@
   "name": "cnvkit_batch",
   "title": "CNVkit",
   "description": "Libraries required for CNVkit",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "project": "project-F1QgX500g01F027v3zV9kKFk",
   "distribution":  "Ubuntu",
   "release":  "16.04",

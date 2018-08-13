@@ -3,17 +3,17 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "categories": [
     "Structural Variation"
   ],
   "details": {
     "repoUrl": "git@github.com:etal/cnvkit-dnanexus.git",
     "upstreamUrl": "https://github.com/etal/cnvkit/",
-    "upstreamVersion": "0.9.4",
+    "upstreamVersion": "0.9.5",
     "upstreamLicences": [ "Apache License 2.0" ],
     "upstreamAuthor": "Eric Talevich",
-    "contactEmail": [ "eric.talevich@ucsf.edu" ],
+    "contactEmail": [ "etalevich@dnanexus.com" ],
     "citations": [ "doi:10.1371/journal.pcbi.1004873" ]
   },
   "inputSpec": [
@@ -34,7 +34,7 @@
       "optional": true
     },
     {
-      "name": "vcfs",
+      "name": "snv_vcfs",
       "label": "SNV calls (VCF)",
       "help": "Variant calls for each tumor sample, including germline SNPs. Must be in the same order as the tumor BAMs. See VCF formatting guidelines: https://cnvkit.readthedocs.io/en/stable/fileformats.html#vcf",
       "class": "array:file",
@@ -103,6 +103,7 @@
       "label": "Regions to exclude from off-target bins",
       "class": "array:file",
       "optional": true
+    },
     {
       "name": "antitarget_avg_size",
       "label": "Average off-target bin size",
@@ -172,14 +173,7 @@
       "optional": true
     },
     {
-      "name": "breaks",
-      "label": "Breakpoints tables (.csv)",
-      "help": "Lists of genes containing possible breakpoints in each sample, as detected in the filtered segments (call_segments).",
-      "class": "array:file",
-      "optional": true
-    },
-    {
-      "name": "vcfs",
+      "name": "cnv_vcfs",
       "label": "VCF files",
       "help": "Each sample's CNV segments in VCF format.",
       "class": "array:file",
@@ -229,20 +223,24 @@
     "interpreter": "python2.7",
     "file": "src/code.py",
     "distribution":  "Ubuntu",
-    "release":  "16.04"
+    "release":  "16.04",
+    "execDepends": [
+        {"name": "imagemagick", "package_manager": "apt"},
+        {"name": "poppler-utils", "package_manager": "apt"}
+    ]
   },
   "regionalOptions": {
     "azure:westus": {
         "systemRequirements": {"*": {"instanceType": "azure:mem1_ssd1_x8"}},
-        "assetDepends": [{"id": "record-F8XqyxQ99gk644x25Y43Vf0Q"}]
+        "assetDepends": [{"id": "record-FJjQQ3j9VPPzxXGGJxQ9j993"}]
     },
     "aws:us-east-1": {
         "systemRequirements": {"*": {"instanceType": "mem1_ssd1_x8"}},
-        "assetDepends": [{"id": "record-F8XqBB80g01JzX3K3fVXkvqY"}]
+        "assetDepends": [{"id": "record-FJjQ8vQ0g011J4Y38k25xBxz"}]
     },
     "aws:cn-north-1": {
         "systemRequirements": {"*": {"instanceType": "mem1_ssd1_x8"}},
-        "assetDepends": [{"id": "record-F8Xv0702FbggV4yf8qY1306X"}]
+        "assetDepends": [{"id": "record-FJjQPG82P5FFp4KvBb2XbBQY"}]
     }
   },
   "openSource": true,

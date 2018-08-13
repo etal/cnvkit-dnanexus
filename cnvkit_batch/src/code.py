@@ -6,7 +6,6 @@ import shlex
 import subprocess
 import tempfile
 #from glob import glob
-from os.path import basename, isfile
 import re
 
 import magic
@@ -16,7 +15,7 @@ import dxpy
 
 
 @dxpy.entry_point('main')
-def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
+def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
          baits=None, fasta=None, annotation=None,
          method='hybrid', haploid_x_reference=False, drop_low_coverage=False,
          exclude_access=None,
@@ -53,7 +52,7 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                                       lambda p: 0 < p <= 1)
         ploidies = validate_per_tumor(ploidy, len(case_bams), "ploidy values",
                                       lambda p: p > 0)
-        vcfs = validate_per_tumor(vcfs, len(case_bams), "VCF files")
+        snv_vcfs = validate_per_tumor(snv_vcfs, len(case_bams), "VCF files")
     else:
         purities = ploidies = None
     sh("mkdir -p /workdir")
@@ -92,16 +91,15 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
         print("** Got output ref from 'run_reference'")  # DBG
     output = {'cn_reference': cn_reference,
               'copy_ratios': [], 'copy_segments': [], 'call_segments': [],
-              'genemetrics': [], 'breaks': [], 'scatters_png': [],
+              'genemetrics': [], 'cnv_vcfs': [], 'scatters_png': [],
              }
 
     # Process each test/case/tumor individually using the given/built reference
     if case_bams:
         print("** About to process", len(case_bams), "'case_bams'")  # DBG
         diagram_pdfs = []
-        scatter_pdfs = []
         for sample_bam, vcf, purity, ploidy in \
-                zip(case_bams, vcfs, purities, ploidies):
+                zip(case_bams, snv_vcfs, purities, ploidies):
             print("** About to launch 'run_sample'")  # DBG
             job_sample = dxpy.new_dxjob(fn_name='run_sample',
                     fn_input={
@@ -116,8 +114,10 @@ def main(case_bams=None, normal_bams=None, vcfs=None, cn_reference=None,
                         'do_parallel': do_parallel,
                         })
             for field in ('copy_ratios', 'copy_segments', 'call_segments',
-                          'genemetrics', 'breaks', 'vcfs'):
+                          'genemetrics'):
                 output[field].append(job_sample.get_output_ref(field))
+            output['scatters_png'].append(job_sample.get_output_ref('scatter'))
+            output['cnv_vcfs'].append(job_sample.get_output_ref('vcf'))
             diagram_pdfs.append(job_sample.get_output_ref('diagram'))
             print("** Got outputs from 'run_sample'")  # DBG
 
@@ -371,11 +371,11 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
 
     cnr_fname = sample_id + ".cnr"
     cns_fname = sample_id + ".cns"
-    if not isfile(cnr_fname):
+    if not os.path.isfile(cnr_fname):
         raise dxpy.AppError(
             "CNVkit failed silently, try running again with "
             "do_parallel=false and see logs")
-    if not isfile(cns_fname):
+    if not os.path.isfile(cns_fname):
         raise dxpy.AppError(
             "Segmentation failed silently, try running again with "
             "do_parallel=false and see logs")
@@ -423,21 +423,16 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     gm_cmd.extend(shared_opts)
     cnvkit_docker(*gm_cmd)
 
-    breaks_fname = safe_fname(sample_id, "breaks.csv")
-    cnvkit_docker('breaks', cnr_fname, call_fname, '--min-probes', '3',
-                  '--output', breaks_fname)
-
     sh("convert {} {}".format(sample_id + "-scatter.pdf",
-                              sample_id + "-scatter.png")
+                              sample_id + "-scatter.png"))
 
     return {'copy_ratios': upload_link(cnr_fname),
             'copy_segments': upload_link(cns_fname),
             'call_segments': upload_link(call_fname),
             'genemetrics': upload_link(genemetrics_fname),
-            'breaks': upload_link(breaks_fname),
-            'vcfs': upload_link(vcf_fname),
+            'vcf': upload_link(vcf_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
-            'scatters': upload_link(sample_id + '-scatter.png'),
+            'scatter': upload_link(sample_id + '-scatter.png'),
            }
 
 
@@ -527,7 +522,7 @@ def upload_link(fname):
 
 def fbase(fname):
     """Strip directory and extensions from a filename, just like CNVkit."""
-    base = basename(fname)
+    base = os.path.basename(fname)
     # Gzip extension usually follows another extension
     if base.endswith('.gz'):
         base = base[:-3]
@@ -594,7 +589,7 @@ def cnvkit_docker(*args):
     """Run a CNVkit sub-command."""
     docker_prefix = ["dx-docker", "run",
                      "-v", "/home/dnanexus:/workdir", "-w", "/workdir",
-                     "etal/cnvkit:0.9.4", "cnvkit.py"]
+                     "etal/cnvkit:0.9.5", "cnvkit.py"]
     sh(*(docker_prefix + list(args)))
 
 
