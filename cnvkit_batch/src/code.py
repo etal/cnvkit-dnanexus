@@ -423,8 +423,8 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     gm_cmd.extend(shared_opts)
     cnvkit_docker(*gm_cmd)
 
-    sh("convert {} {}".format(sample_id + "-scatter.pdf",
-                              sample_id + "-scatter.png"))
+    # sh("convert {} {}".format(sample_id + "-scatter.pdf",
+    #                           sample_id + "-scatter.png"))
 
     return {'copy_ratios': upload_link(cnr_fname),
             'copy_segments': upload_link(cns_fname),
@@ -432,7 +432,8 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
             'genemetrics': upload_link(genemetrics_fname),
             'vcf': upload_link(vcf_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
-            'scatter': upload_link(sample_id + '-scatter.png'),
+            # 'scatter': upload_link(sample_id + '-scatter.png'),
+            'scatter': upload_link(sample_id + '-scatter.pdf'),
            }
 
 
