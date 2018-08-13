@@ -225,7 +225,6 @@
     "distribution":  "Ubuntu",
     "release":  "16.04",
     "execDepends": [
-        {"name": "imagemagick", "package_manager": "apt"},
         {"name": "poppler-utils", "package_manager": "apt"}
     ]
   },
