@@ -3,7 +3,7 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.9.5",
+  "version": "0.9.5.1",
   "categories": [
     "Structural Variation"
   ],
@@ -244,7 +244,6 @@
   },
   "openSource": true,
   "developers": [
-    "user-etal",
     "user-etalevich"
   ],
   "authorizedUsers": ["PUBLIC"]
