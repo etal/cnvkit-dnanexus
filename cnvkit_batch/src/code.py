@@ -42,11 +42,19 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
             raise dxpy.AppError(
                     "If 'cn_reference' is given, options to construct a new "
                     "reference (%s) should not be used:" % ", ".join(bad_flags))
-    elif method in ('hybrid', 'amplicon') and not baits:
-        raise dxpy.AppError(
-                "For the '%r' sequencing method, input 'baits' (at least) "
-                "must be given to build a new reference if 'cn_reference' "
-                "is not given." % baits)
+    else:
+        if not fasta:
+            raise dxpy.AppError(
+                    "Input 'fasta' must be given with the reference genome "
+                    "sequence if an existing copy number reference profile "
+                    "('cn_reference') is not given.")
+
+        if method in ('hybrid', 'amplicon') and not baits:
+            raise dxpy.AppError(
+                    "For the '%r' sequencing method, input 'baits' (at least) "
+                    "must be given with the captured genomic regions if an "
+                    "existing copy number reference profile ('cn_reference') "
+                    "is not given." % baits)
     if case_bams:
         purities = validate_per_tumor(purity, len(case_bams), "purity values",
                                       lambda p: 0 < p <= 1)
