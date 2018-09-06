@@ -97,15 +97,15 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                           })
         cn_reference = job_ref.get_output_ref('cn_reference')
         print("** Got output ref from 'run_reference'")  # DBG
-    output = {'cn_reference': cn_reference,
-              'copy_ratios': [], 'copy_segments': [], 'call_segments': [],
-              'genemetrics': [], 'cnv_vcfs': [], 'scatters_png': [],
-             }
+    output = {'cn_reference': cn_reference, 'copy_ratios': [],
+              'copy_segments': [], 'call_segments': [], 'genemetrics': [],
+              'cnv_vcfs': [], 'scatters_png': [], 'diagrams_pdf': [],
+    }
 
     # Process each test/case/tumor individually using the given/built reference
     if case_bams:
         print("** About to process", len(case_bams), "'case_bams'")  # DBG
-        diagram_pdfs = []
+        #diagram_pdfs = []
         for sample_bam, vcf, purity, ploidy in \
                 zip(case_bams, snv_vcfs, purities, ploidies):
             print("** About to launch 'run_sample'")  # DBG
@@ -125,8 +125,9 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                           'genemetrics'):
                 output[field].append(job_sample.get_output_ref(field))
             output['scatters_png'].append(job_sample.get_output_ref('scatter'))
+            output['diagrams_pdf'].append(job_sample.get_output_ref('diagram'))
             output['cnv_vcfs'].append(job_sample.get_output_ref('vcf'))
-            diagram_pdfs.append(job_sample.get_output_ref('diagram'))
+            #diagram_pdfs.append(job_sample.get_output_ref('diagram'))
             print("** Got outputs from 'run_sample'")  # DBG
 
         # Consolidate multi-sample outputs
@@ -137,7 +138,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                           'haploid_x_reference': haploid_x_reference})
         for field in ('seg', 'heatmap_pdf', 'metrics', 'sexes'):
             output[field] = job_agg.get_output_ref(field)
-        output['diagram_pdf'] = concat_pdfs_link(diagram_pdfs, 'diagrams')
+        #output['diagram_pdf'] = concat_pdfs_link(diagram_pdfs, 'diagrams')
         print("** Got outputs from 'aggregate_outputs'")  # DBG
 
     print("** All done! Returning output:")
