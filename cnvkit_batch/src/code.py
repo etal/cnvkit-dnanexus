@@ -99,7 +99,8 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
         print("** Got output ref from 'run_reference'")  # DBG
     output = {'cn_reference': cn_reference, 'copy_ratios': [],
               'copy_segments': [], 'call_segments': [], 'genemetrics': [],
-              'cnv_vcfs': [], 'scatters_png': [], 'diagrams_pdf': [],
+              'cnv_vcfs': [], 'cnv_nexus': [],
+              'scatters_png': [], 'diagrams_pdf': [],
     }
 
     # Process each test/case/tumor individually using the given/built reference
@@ -127,6 +128,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
             output['scatters_png'].append(job_sample.get_output_ref('scatter'))
             output['diagrams_pdf'].append(job_sample.get_output_ref('diagram'))
             output['cnv_vcfs'].append(job_sample.get_output_ref('vcf'))
+            output['cnv_nexus'].append(job_sample.get_output_ref('nexus'))
             #diagram_pdfs.append(job_sample.get_output_ref('diagram'))
             print("** Got outputs from 'run_sample'")  # DBG
 
@@ -407,6 +409,20 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
         vcf_cmd.extend(['--ploidy', ploidy])
     cnvkit_docker(*vcf_cmd)
 
+    # Special handling for BioDiscovery Nexus Copy Number
+    if vcf:
+        nexus_fname = sample_id + ".nexus-ogt"
+        nexus_cmd = ['export', 'nexus-ogt', cnr_fname, 
+                     #'--min-variant-depth', '15',
+                     '--min-weight', '0.1',
+                     '--output', nexus_fname]
+    else:
+        nexus_fname = sample_id + ".nexus-basic"
+        nexus_cmd = ['export', 'nexus-basic', cnr_fname, 
+                     '--output', nexus_fname]
+    cnvkit_docker(*nexus_cmd)
+    # /Special
+
     call_fname = safe_fname(sample_id, "call.cns")
     call_cmd = ['call', sm_fname, '--output', call_fname,
                 '--center', '--filter', 'ci']
@@ -444,6 +460,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
             'call_segments': upload_link(call_fname),
             'genemetrics': upload_link(genemetrics_fname),
             'vcf': upload_link(vcf_fname),
+            'nexus': upload_link(nexus_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
             'scatter': upload_link(scatter_fname),
            }

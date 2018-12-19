@@ -3,7 +3,7 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.9.5.3",
+  "version": "0.9.5.4",
   "categories": [
     "Structural Variation"
   ],
@@ -176,6 +176,13 @@
       "name": "cnv_vcfs",
       "label": "VCF files",
       "help": "Each sample's CNV segments in VCF format.",
+      "class": "array:file",
+      "optional": true
+    },
+    {
+      "name": "cnv_nexus",
+      "label": "VCF files",
+      "help": "Each sample's CNV segments in BioDiscovery Nexus Copy Number format ('Custom OGT' or 'basic').",
       "class": "array:file",
       "optional": true
     },
