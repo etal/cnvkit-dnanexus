@@ -401,18 +401,21 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
         sm_cmd.append('--drop-low-coverage')
     cnvkit_docker(*sm_cmd)
 
-    vcf_fname = sample_id + ".vcf"
-    vcf_cmd = ['export', 'vcf', cns_fname, '--output', vcf_fname]
+    cnv_vcf_fname = sample_id + ".vcf"
+    vcf_cmd = ['export', 'vcf', cns_fname, '--output', cnv_vcf_fname]
     if haploid_x_reference:
         vcf_cmd.append('--haploid-x-reference')
     if ploidy:
         vcf_cmd.extend(['--ploidy', ploidy])
     cnvkit_docker(*vcf_cmd)
 
+    if vcf:
+        snv_vcf_fname = download_link(vcf)
+
     # Special handling for BioDiscovery Nexus Copy Number
     if vcf:
         nexus_fname = sample_id + ".nexus-ogt"
-        nexus_cmd = ['export', 'nexus-ogt', cnr_fname, 
+        nexus_cmd = ['export', 'nexus-ogt', cnr_fname, snv_vcf_fname,
                      #'--min-variant-depth', '15',
                      '--min-weight', '0.1',
                      '--output', nexus_fname]
@@ -430,7 +433,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     if haploid_x_reference:
         call_cmd.append('--haploid-x-reference')
     if vcf:
-        call_cmd.extend(['--vcf', download_link(vcf)])
+        call_cmd.extend(['--vcf', snv_vcf_fname])
     if purity or ploidy:
         call_cmd.extend(['--method', 'clonal'])
         if purity:
@@ -459,7 +462,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
             'copy_segments': upload_link(cns_fname),
             'call_segments': upload_link(call_fname),
             'genemetrics': upload_link(genemetrics_fname),
-            'vcf': upload_link(vcf_fname),
+            'vcf': upload_link(cnv_vcf_fname),
             'nexus': upload_link(nexus_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
             'scatter': upload_link(scatter_fname),
