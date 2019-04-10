@@ -21,7 +21,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
          exclude_access=None,
          antitarget_avg_size=None, target_avg_size=None,
          purity=None, ploidy=None, do_parallel=True):
-    cnvkit_docker("version")
+    cnvkit("version")
 
     # Validate inputs
     # (from cnvlib.commands._cmd_batch)
@@ -192,7 +192,7 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
                 raise dxpy.AppError("Unexpected type: %r" % exclude_access)
         if method == 'wgs':
             cmd.extend(['--min-gap-size', '100'])
-        cnvkit_docker(*cmd)
+        cnvkit(*cmd)
     else:
         access_bed = None
 
@@ -217,14 +217,14 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
             cmd_tgt.extend(['--avg-size', target_avg_size])
         if annotation:
             cmd_tgt.extend(['--annotate', annot_fname])
-        cnvkit_docker(*cmd_tgt)
+        cnvkit(*cmd_tgt)
         if method == 'hybrid':
             anti_bed = safe_fname('antitargets', 'bed')
             cmd_anti = ['antitarget', bait_bed, '--access', access_bed,
                         '--output', anti_bed]
             if antitarget_avg_size:
                 cmd_anti.extend(['--avg-size', antitarget_avg_size])
-            cnvkit_docker(*cmd_anti)
+            cnvkit(*cmd_anti)
         else:
             anti_bed = None
 
@@ -263,7 +263,7 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
         else:
             anti_bed = None
         print("** About to run 'autobin' in docker")
-        cnvkit_docker(*cmd_autobin)
+        cnvkit(*cmd_autobin)
         print("** Ran 'autobin' in docker")
     print("** About to upload links to", tgt_bed, "and", anti_bed)
     return upload_link(tgt_bed), upload_link(anti_bed)
@@ -299,13 +299,13 @@ def run_coverage(bam, targets, antitargets, do_parallel):
     target_fname = download_link(targets)
     sample_id = fbase(bam_fname)
     tcov_fname = safe_fname(sample_id, "targetcoverage.cnn")
-    cnvkit_docker(*(cmd_base +
+    cnvkit(*(cmd_base +
         [bam_fname, target_fname, '--output', tcov_fname]))
     coverages = [tcov_fname]
     if antitargets:
         antitarget_fname = download_link(antitargets)
         acov_fname = safe_fname(sample_id, "antitargetcoverage.cnn")
-        cnvkit_docker(*(cmd_base +
+        cnvkit(*(cmd_base +
             [bam_fname, antitarget_fname, '--output', acov_fname]))
         coverages.append(acov_fname)
     return {'coverages': [upload_link(f) for f in coverages]}
@@ -317,7 +317,7 @@ def run_reference(coverages, fasta, targets, antitargets, haploid_x_reference):
     sh("mkdir -p /workdir")
     fa_fname = maybe_gunzip(download_link(fasta), "ref", "fa")
     out_fname = safe_fname("cnv-reference", "cnn")
-    cmd = ['reference', '--fasta', fa_fname, '--output', out_fname]
+    cmd = ['reference', '--cluster', '--fasta', fa_fname, '--output', out_fname]
     if haploid_x_reference:
         cmd.append('--haploid-x-reference')
     if coverages:
@@ -327,7 +327,7 @@ def run_reference(coverages, fasta, targets, antitargets, haploid_x_reference):
         cmd.extend(['--targets', download_link(targets)])
         if antitargets:
             cmd.extend(['--antitargets', download_link(antitargets)])
-    cnvkit_docker(*cmd)
+    cnvkit(*cmd)
     return {'cn_reference': upload_link(out_fname)}
 
 
@@ -365,7 +365,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     sample_id = fbase(bam_fname)
 
     cmd = ['batch', bam_fname, '--method', method, '--reference', ref_fname,
-           '--scatter', '--diagram']
+           '--scatter', '--diagram', '--cluster']
     if do_parallel:
         cmd.extend(['--processes', str(psutil.cpu_count(logical=True))])
     shared_opts = []
@@ -375,7 +375,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
         shared_opts.append('--haploid-x-reference')
     cmd.extend(shared_opts)
 
-    cnvkit_docker(*cmd)
+    cnvkit(*cmd)
     sh("ls -Altr")  # Show the generated files in the DNAnexus log
 
     cnr_fname = sample_id + ".cnr"
@@ -397,7 +397,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
               '--bootstrap', '50' if method == 'wgs' else '100']
     if drop_low_coverage:
         sm_cmd.append('--drop-low-coverage')
-    cnvkit_docker(*sm_cmd)
+    cnvkit(*sm_cmd)
 
     vcf_fname = sample_id + ".vcf"
     vcf_cmd = ['export', 'vcf', cns_fname, '--output', vcf_fname]
@@ -405,7 +405,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
         vcf_cmd.append('--haploid-x-reference')
     if ploidy:
         vcf_cmd.extend(['--ploidy', ploidy])
-    cnvkit_docker(*vcf_cmd)
+    cnvkit(*vcf_cmd)
 
     call_fname = safe_fname(sample_id, "call.cns")
     call_cmd = ['call', sm_fname, '--output', call_fname,
@@ -423,21 +423,21 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
             call_cmd.extend(['--ploidy', ploidy])
     else:
         call_cmd.extend(['--method', 'threshold'])
-    cnvkit_docker(*call_cmd)
+    cnvkit(*call_cmd)
 
     genemetrics_fname = safe_fname(sample_id, "genemetrics.csv")
     gm_cmd = ['genemetrics', cnr_fname, '--segment', call_fname,
               '--min-probes', '3', '--threshold', '0.2',
               '--output', genemetrics_fname]
     gm_cmd.extend(shared_opts)
-    cnvkit_docker(*gm_cmd)
+    cnvkit(*gm_cmd)
 
     # Rebuild the scatter plot (even though 'batch' creates one) with
     # filtered segments, CN-indicating segment colors, and in PNG format
     scatter_fname = sample_id + "-scatter.png"
     scatter_cmd = ['scatter', cnr_fname, '-s', call_fname,
                    '--output', scatter_fname]
-    cnvkit_docker(*scatter_cmd)
+    cnvkit(*scatter_cmd)
 
     return {'copy_ratios': upload_link(cnr_fname),
             'copy_segments': upload_link(cns_fname),
@@ -456,15 +456,15 @@ def aggregate_outputs(copy_ratios, copy_segments, haploid_x_reference):
     all_cns = [download_link(cns) for cns in copy_segments]
 
     metrics_fname = safe_fname("cnv-metrics", "csv")
-    cnvkit_docker("metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
-                  "--output", metrics_fname)
+    cnvkit("metrics", " ".join(all_cnr), "-s", " ".join(all_cns),
+           "--output", metrics_fname)
 
     seg_fname = safe_fname("cnv-segments", "seg")
-    cnvkit_docker("export seg", " ".join(all_cns), "--output", seg_fname)
+    cnvkit("export seg", " ".join(all_cns), "--output", seg_fname)
 
     if len(all_cns) > 1:
         heat_fname = safe_fname("cnv-heatmap", "pdf")
-        cnvkit_docker("heatmap", "-d", " ".join(all_cns), "--output", heat_fname)
+        cnvkit("heatmap", "-d", " ".join(all_cns), "--output", heat_fname)
     else:
         heat_fname = None
 
@@ -472,7 +472,7 @@ def aggregate_outputs(copy_ratios, copy_segments, haploid_x_reference):
     sex_cmd = ["sex", "--output", sex_fname] + all_cnr
     if haploid_x_reference:
         sex_cmd.append("--haploid-x-reference")
-    cnvkit_docker(*sex_cmd)
+    cnvkit(*sex_cmd)
 
     outputs = {'metrics': upload_link(metrics_fname),
                'seg': upload_link(seg_fname),
@@ -598,12 +598,9 @@ def check_files(maybe_filenames):
                 print("Not file:", os.path.abspath(fname))
 
 
-def cnvkit_docker(*args):
+def cnvkit(*args):
     """Run a CNVkit sub-command."""
-    docker_prefix = ["dx-docker", "run",
-                     "-v", "/home/dnanexus:/workdir", "-w", "/workdir",
-                     "etal/cnvkit:0.9.5", "cnvkit.py"]
-    sh(*(docker_prefix + list(args)))
+    sh(*(["cnvkit.py"] + list(args)))
 
 
 # _____________________________________________________________________________
