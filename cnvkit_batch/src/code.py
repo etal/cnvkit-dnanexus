@@ -63,7 +63,6 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
         snv_vcfs = validate_per_tumor(snv_vcfs, len(case_bams), "VCF files")
     else:
         purities = ploidies = None
-    sh("mkdir -p /workdir")
 
     # If reference is not given, create one
     if not cn_reference:
@@ -105,7 +104,6 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
     # Process each test/case/tumor individually using the given/built reference
     if case_bams:
         print("** About to process", len(case_bams), "'case_bams'")  # DBG
-        #diagram_pdfs = []
         for sample_bam, vcf, purity, ploidy in \
                 zip(case_bams, snv_vcfs, purities, ploidies):
             print("** About to launch 'run_sample'")  # DBG
@@ -127,7 +125,6 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
             output['scatters_png'].append(job_sample.get_output_ref('scatter'))
             output['diagrams_pdf'].append(job_sample.get_output_ref('diagram'))
             output['cnv_vcfs'].append(job_sample.get_output_ref('vcf'))
-            #diagram_pdfs.append(job_sample.get_output_ref('diagram'))
             print("** Got outputs from 'run_sample'")  # DBG
 
         # Consolidate multi-sample outputs
@@ -138,7 +135,6 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                           'haploid_x_reference': haploid_x_reference})
         for field in ('seg', 'heatmap_pdf', 'metrics', 'sexes'):
             output[field] = job_agg.get_output_ref(field)
-        #output['diagram_pdf'] = concat_pdfs_link(diagram_pdfs, 'diagrams')
         print("** Got outputs from 'aggregate_outputs'")  # DBG
 
     print("** All done! Returning output:")
@@ -177,7 +173,6 @@ def validate_per_tumor(values, n_expected, title, criterion=None):
 def make_region_beds(normal_bams, method, fasta, baits, annotation,
         exclude_access, antitarget_avg_size, target_avg_size):
     """Quickly calculate reasonable bin sizes from BAM read counts."""
-    sh("mkdir -p /workdir")
     if method != 'amplicon':
         # Get 'access' from fasta
         fa_fname = maybe_gunzip(download_link(fasta), "ref", "fa")
@@ -291,7 +286,6 @@ def filter_bed_chroms(in_bed):
 @dxpy.entry_point('run_coverage')
 def run_coverage(bam, targets, antitargets, do_parallel):
     """Calculate coverage in the given regions from BAM read depths."""
-    sh("mkdir -p /workdir")
     cmd_base = ['coverage']
     if do_parallel:
         cmd_base.extend(['--processes', str(psutil.cpu_count(logical=True))])
@@ -314,7 +308,6 @@ def run_coverage(bam, targets, antitargets, do_parallel):
 @dxpy.entry_point('run_reference')
 def run_reference(coverages, fasta, targets, antitargets, haploid_x_reference):
     """Compile a coverage reference from the given files (normal samples)."""
-    sh("mkdir -p /workdir")
     fa_fname = maybe_gunzip(download_link(fasta), "ref", "fa")
     out_fname = safe_fname("cnv-reference", "cnn")
     cmd = ['reference', '--cluster', '--fasta', fa_fname, '--output', out_fname]
@@ -358,8 +351,6 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
 
     Returns a dict of the generated file names.
     """
-    sh("mkdir -p /workdir")
-
     ref_fname = download_link(cn_reference)
     bam_fname = download_link(sample_bam)
     sample_id = fbase(bam_fname)
@@ -376,7 +367,7 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     cmd.extend(shared_opts)
 
     cnvkit(*cmd)
-    sh("ls -Altr")  # Show the generated files in the DNAnexus log
+    sh("ls", "-Altr")  # Show the generated files in the DNAnexus log
 
     cnr_fname = sample_id + ".cnr"
     cns_fname = sample_id + ".cns"
@@ -451,7 +442,6 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
 
 @dxpy.entry_point('aggregate_outputs')
 def aggregate_outputs(copy_ratios, copy_segments, haploid_x_reference):
-    sh("mkdir -p /workdir")
     all_cnr = [download_link(cnr) for cnr in copy_ratios]
     all_cns = [download_link(cns) for cns in copy_segments]
 
@@ -480,29 +470,6 @@ def aggregate_outputs(copy_ratios, copy_segments, haploid_x_reference):
     if heat_fname:
         outputs['heatmap_pdf'] = upload_link(heat_fname)
     return outputs
-
-
-@dxpy.entry_point('concat_pdfs')
-def concat_pdfs(pdfs, name): # name="cnv-diagrams"
-    if not pdfs:
-        out_ref = None
-    elif len(pdfs) == 1:
-        # NB: make sure this operates on the list, not the link/dict
-        out_ref = pdfs[0]
-    else:
-        # Download & concat
-        pdf_fnames = [download_link(f) for f in pdfs]
-        out_fname = safe_fname("cnv-" + name, "pdf")
-        sh("pdfunite", " ".join(pdf_fnames), out_fname)
-        out_ref = upload_link(out_fname)
-    return {"pdf": out_ref}
-
-
-def concat_pdfs_link(pdf_refs, name):
-    job = dxpy.new_dxjob(fn_name='concat_pdfs',
-            fn_input={'pdfs': pdf_refs, 'name': name})
-    return job.get_output_ref('pdf')
-
 
 
 # _____________________________________________________________________________
@@ -554,7 +521,9 @@ def maybe_gunzip(fname, base, ext):
     """Unpack a gzipped file, if necessary."""
     if fname and 'gzip' in magic.from_file(fname):
         newf = safe_fname(base, ext)
-        sh("gunzip", fname, "-c >", newf)
+        cmd = "gunzip {} -c > {}".format(fname, newf)
+        print("$", cmd)
+        subprocess.check_call(cmd, shell=True)
         fname = newf
     return fname
 
@@ -600,8 +569,7 @@ def check_files(maybe_filenames):
 
 def cnvkit(*args):
     """Run a CNVkit sub-command."""
-    sh(*(["cnvkit.py"] + list(args)))
-
+    sh(*(["PYTHONPATH=", "python3", "/usr/local/bin/cnvkit.py"] + list(args)))
 
 # _____________________________________________________________________________
 
