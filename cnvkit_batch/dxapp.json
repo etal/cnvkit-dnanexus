@@ -182,6 +182,13 @@
       "optional": true
     },
     {
+      "name": "cnv_beds",
+      "label": "BED files",
+      "help": "Each sample's CNV segments in UCSC BED format.",
+      "class": "array:file",
+      "optional": true
+    },
+    {
       "name": "cnv_vcfs",
       "label": "VCF files",
       "help": "Each sample's CNV segments in VCF format.",

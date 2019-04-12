@@ -127,6 +127,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
             output['scatters_png'].append(job_sample.get_output_ref('scatter'))
             output['diagrams_pdf'].append(job_sample.get_output_ref('diagram'))
             output['cnv_vcfs'].append(job_sample.get_output_ref('vcf'))
+            output['cnv_beds'].append(job_sample.get_output_ref('bed'))
             print("** Got outputs from 'run_sample'")  # DBG
 
         # Consolidate multi-sample outputs
@@ -385,13 +386,6 @@ def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity
 
     # Post-processing
 
-    # sm_fname = safe_fname(sample_id, "segmetrics.cns")
-    # sm_cmd = ['segmetrics', cnr_fname, '-s', cns_fname, '--output', sm_fname,
-    #           '--ci', '--alpha', '0.5', '--smooth-bootstrap']
-    # if drop_low_coverage:
-    #     sm_cmd.append('--drop-low-coverage')
-    # cnvkit(*sm_cmd)
-
     vcf_fname = sample_id + ".vcf"
     vcf_cmd = ['export', 'vcf', cns_fname, '--output', vcf_fname]
     if haploid_x_reference:
@@ -400,24 +394,16 @@ def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity
         vcf_cmd.extend(['--ploidy', ploidy])
     cnvkit(*vcf_cmd)
 
-    call_fname = sample_id + ".call.cns"
+    bed_fname = sample_id + ".vcf"
+    bed_cmd = ['export', 'bed', '--show', 'variant', cns_fname,
+               '--output', bed_fname]
+    if haploid_x_reference:
+        bed_cmd.append('--haploid-x-reference')
+    if ploidy:
+        bed_cmd.extend(['--ploidy', ploidy])
+    cnvkit(*bed_cmd)
 
-    # call_cmd = ['call', sm_fname, '--output', call_fname,
-    #             '--center', '--filter', 'ci']
-    # #call_cmd.extend(shared_opts)
-    # if haploid_x_reference:
-    #     call_cmd.append('--haploid-x-reference')
-    # if vcf:
-    #     call_cmd.extend(['--vcf', download_link(vcf)])
-    # if purity or ploidy:
-    #     call_cmd.extend(['--method', 'clonal'])
-    #     if purity:
-    #         call_cmd.extend(['--purity', purity])
-    #     if ploidy:
-    #         call_cmd.extend(['--ploidy', ploidy])
-    # else:
-    #     call_cmd.extend(['--method', 'threshold'])
-    # cnvkit(*call_cmd)
+    call_fname = sample_id + ".call.cns"
 
     genemetrics_fname = safe_fname(sample_id, "genemetrics.csv")
     gm_cmd = ['genemetrics', cnr_fname, '--segment', call_fname,
@@ -426,13 +412,6 @@ def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity
     gm_cmd.extend(shared_opts)
     cnvkit(*gm_cmd)
 
-    # Rebuild the scatter plot (even though 'batch' creates one) with
-    # filtered segments, CN-indicating segment colors, and in PNG format
-    # scatter_fname = sample_id + "-scatter.png"
-    # scatter_cmd = ['scatter', cnr_fname, '-s', call_fname,
-    #                '--output', scatter_fname]
-    # cnvkit(*scatter_cmd)
-    #scatter_fname = sample_id + "-scatter.png"
     scatter_fname = sample_id + "-scatter.pdf"
 
     return {'copy_ratios': upload_link(cnr_fname),
@@ -440,6 +419,7 @@ def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity
             'call_segments': upload_link(call_fname),
             'genemetrics': upload_link(genemetrics_fname),
             'vcf': upload_link(vcf_fname),
+            'bed': upload_link(bed_fname),
             'diagram': upload_link(sample_id + '-diagram.pdf'),
             'scatter': upload_link(scatter_fname),
            }
