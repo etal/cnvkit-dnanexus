@@ -227,12 +227,6 @@
       "help": "Scatter plot(s) of genome-wide copy number profile, one per test sample.",
       "class": "array:file",
       "optional": true
-    },
-    {
-      "name": "diagrams_pdf",
-      "label": "Chromosome ideogram(s) (PDF)",
-      "class": "array:file",
-      "optional": true
     }
   ],
   "runSpec": {

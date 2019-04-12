@@ -35,8 +35,6 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                          (exclude_access,           'exclude_access'),
                          (target_avg_size,          'target_avg_size'),
                          (antitarget_avg_size,      'antitarget_avg_size'),
-                         #(short_names,              'short_names'),
-                         (segment_method,           'segment_method'),
                          )
                      if is_used]
         if bad_flags:
@@ -99,7 +97,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
         print("** Got output ref from 'run_reference'")  # DBG
     output = {'cn_reference': cn_reference, 'copy_ratios': [],
               'copy_segments': [], 'call_segments': [], 'genemetrics': [],
-              'cnv_vcfs': [], 'scatters_png': [], 'diagrams_pdf': [],
+              'cnv_beds': [], 'cnv_vcfs': [], 'scatters_png': [],
     }
 
     # Process each test/case/tumor individually using the given/built reference
@@ -125,9 +123,8 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                           'genemetrics'):
                 output[field].append(job_sample.get_output_ref(field))
             output['scatters_png'].append(job_sample.get_output_ref('scatter'))
-            output['diagrams_pdf'].append(job_sample.get_output_ref('diagram'))
-            output['cnv_vcfs'].append(job_sample.get_output_ref('vcf'))
             output['cnv_beds'].append(job_sample.get_output_ref('bed'))
+            output['cnv_vcfs'].append(job_sample.get_output_ref('vcf'))
             print("** Got outputs from 'run_sample'")  # DBG
 
         # Consolidate multi-sample outputs
@@ -360,7 +357,7 @@ def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity
 
     cmd = ['batch', bam_fname, '--method', seq_method, '--reference', ref_fname,
            '--segment-method', segment_method,
-           '--scatter', '--diagram', '--cluster']
+           '--scatter', '--cluster']
     if do_parallel:
         cmd.extend(['--processes', str(psutil.cpu_count(logical=True))])
     shared_opts = []
@@ -412,7 +409,7 @@ def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity
     gm_cmd.extend(shared_opts)
     cnvkit(*gm_cmd)
 
-    scatter_fname = sample_id + "-scatter.pdf"
+    scatter_fname = sample_id + "-scatter.png"
 
     return {'copy_ratios': upload_link(cnr_fname),
             'copy_segments': upload_link(cns_fname),
@@ -420,7 +417,6 @@ def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity
             'genemetrics': upload_link(genemetrics_fname),
             'vcf': upload_link(vcf_fname),
             'bed': upload_link(bed_fname),
-            'diagram': upload_link(sample_id + '-diagram.pdf'),
             'scatter': upload_link(scatter_fname),
            }
 
