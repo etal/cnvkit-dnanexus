@@ -3,7 +3,7 @@
   "title": "CNVkit",
   "summary": "Call copy number variants from DNA sequencing, and/or build a reference profile",
   "dxapi": "1.0.0",
-  "version": "0.9.5.3",
+  "version": "0.9.7",
   "categories": [
     "Structural Variation"
   ],
@@ -74,12 +74,21 @@
       "optional": true
     },
     {
-      "name": "method",
+      "name": "seq_method",
       "label": "Sequencing method",
       "help": "Target capture method, if any: 'hybrid' (hybridization capture; the default), 'amplicon' (targeted amplicon capture), or 'wgs' (whole genome sequencing -- no capture step)",
       "class": "string",
       "choices": ["wgs", "amplicon", "hybrid"],
       "default": "hybrid",
+      "optional": true
+    },
+    {
+      "name": "segment_method",
+      "label": "Segmentation method",
+      "help": "Method used in the 'segment' step.",
+      "class": "string",
+      "choices": ["cbs", "hmm", "haar"],
+      "default": "cbs",
       "optional": true
     },
     {
@@ -234,7 +243,7 @@
     },
     "aws:us-east-1": {
         "systemRequirements": {"*": {"instanceType": "mem1_ssd1_x8"}},
-        "assetDepends": [{"id": "record-FJjQ8vQ0g011J4Y38k25xBxz"}]
+        "assetDepends": [{"id": "record-FXg5xX00pKJp4ZPP5VJ34Kyj"}]
     },
     "aws:cn-north-1": {
         "systemRequirements": {"*": {"instanceType": "mem1_ssd1_x8"}},

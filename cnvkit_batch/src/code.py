@@ -17,9 +17,9 @@ import dxpy
 @dxpy.entry_point('main')
 def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
          baits=None, fasta=None, annotation=None,
-         method='hybrid', haploid_x_reference=False, drop_low_coverage=False,
-         exclude_access=None,
-         antitarget_avg_size=None, target_avg_size=None,
+         seq_method='hybrid', segment_method='cbs',
+         haploid_x_reference=False, drop_low_coverage=False,
+         exclude_access=None, antitarget_avg_size=None, target_avg_size=None,
          purity=None, ploidy=None, do_parallel=True):
     cnvkit("version")
 
@@ -36,6 +36,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                          (target_avg_size,          'target_avg_size'),
                          (antitarget_avg_size,      'antitarget_avg_size'),
                          #(short_names,              'short_names'),
+                         (segment_method,           'segment_method'),
                          )
                      if is_used]
         if bad_flags:
@@ -49,7 +50,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                     "sequence if an existing copy number reference profile "
                     "('cn_reference') is not given.")
 
-        if method in ('hybrid', 'amplicon') and not baits:
+        if seq_method in ('hybrid', 'amplicon') and not baits:
             raise dxpy.AppError(
                     "For the '%r' sequencing method, input 'baits' (at least) "
                     "must be given with the captured genomic regions if an "
@@ -68,7 +69,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
     if not cn_reference:
         print("** About to call 'make_region_beds'")  # DBG
         targets, antitargets = make_region_beds(
-                normal_bams, method, fasta, baits, annotation,
+                normal_bams, seq_method, fasta, baits, annotation,
                 exclude_access, antitarget_avg_size, target_avg_size)
         print("** Finished calling 'make_region_beds'")  # DBG
         normal_cvgs = []
@@ -91,7 +92,7 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
                           'fasta': fasta,
                           'targets': targets,
                           'antitargets': (antitargets
-                              if method == 'hybrid' else None),
+                              if seq_method == 'hybrid' else None),
                           'haploid_x_reference': haploid_x_reference,
                           })
         cn_reference = job_ref.get_output_ref('cn_reference')
@@ -110,11 +111,12 @@ def main(case_bams=None, normal_bams=None, snv_vcfs=None, cn_reference=None,
             job_sample = dxpy.new_dxjob(fn_name='run_sample',
                     fn_input={
                         'sample_bam': sample_bam,
-                        'method': method,
-                        'cn_reference': cn_reference,
                         'vcf': vcf,
                         'purity': purity,
                         'ploidy': ploidy,
+                        'cn_reference': cn_reference,
+                        'seq_method': seq_method,
+                        'segment_method': segment_method,
                         'drop_low_coverage': drop_low_coverage,
                         'haploid_x_reference': haploid_x_reference,
                         'do_parallel': do_parallel,
@@ -170,10 +172,10 @@ def validate_per_tumor(values, n_expected, title, criterion=None):
     return out_vals
 
 
-def make_region_beds(normal_bams, method, fasta, baits, annotation,
+def make_region_beds(normal_bams, seq_method, fasta, baits, annotation,
         exclude_access, antitarget_avg_size, target_avg_size):
     """Quickly calculate reasonable bin sizes from BAM read counts."""
-    if method != 'amplicon':
+    if seq_method != 'amplicon':
         # Get 'access' from fasta
         fa_fname = maybe_gunzip(download_link(fasta), "ref", "fa")
         access_bed = safe_fname("access", "bed")
@@ -185,7 +187,7 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
                     cmd.extend(['--exclude', excl_fname])
             else:
                 raise dxpy.AppError("Unexpected type: %r" % exclude_access)
-        if method == 'wgs':
+        if seq_method == 'wgs':
             cmd.extend(['--min-gap-size', '100'])
         cnvkit(*cmd)
     else:
@@ -198,7 +200,7 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
 
     if baits:
         bait_bed = download_link(baits)
-    elif method == 'wgs':
+    elif seq_method == 'wgs':
         bait_bed = filter_bed_chroms(access_bed)
     else:
         bait_bed = None
@@ -213,7 +215,7 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
         if annotation:
             cmd_tgt.extend(['--annotate', annot_fname])
         cnvkit(*cmd_tgt)
-        if method == 'hybrid':
+        if seq_method == 'hybrid':
             anti_bed = safe_fname('antitargets', 'bed')
             cmd_anti = ['antitarget', bait_bed, '--access', access_bed,
                         '--output', anti_bed]
@@ -240,7 +242,7 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
 
         bam_fname = download_link(midsize_dxfile(normal_bams))
         cmd_autobin = ['autobin', bam_fname,
-                       '--method', method, '--short-names']
+                       '--method', seq_method, '--short-names']
         if annotation:
             cmd_autobin.extend(['--annotate', annot_fname])
         if baits:
@@ -253,7 +255,7 @@ def make_region_beds(normal_bams, method, fasta, baits, annotation,
                 #out_fname_base = fbase(access_bed)
                 out_fname_base = fbase(bam_fname)
         tgt_bed = out_fname_base + '.target.bed'
-        if method == 'hybrid':
+        if seq_method == 'hybrid':
             anti_bed = out_fname_base + '.antitarget.bed'
         else:
             anti_bed = None
@@ -345,7 +347,7 @@ def flatten_dxarray(listish):
 
 
 @dxpy.entry_point('run_sample')
-def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
+def run_sample(sample_bam, seq_method, segment_method, cn_reference, vcf, purity, ploidy,
     drop_low_coverage, haploid_x_reference, do_parallel):
     """Run the CNVkit pipeline.
 
@@ -355,7 +357,8 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
     bam_fname = download_link(sample_bam)
     sample_id = fbase(bam_fname)
 
-    cmd = ['batch', bam_fname, '--method', method, '--reference', ref_fname,
+    cmd = ['batch', bam_fname, '--method', seq_method, '--reference', ref_fname,
+           '--segment-method', segment_method,
            '--scatter', '--diagram', '--cluster']
     if do_parallel:
         cmd.extend(['--processes', str(psutil.cpu_count(logical=True))])
@@ -382,13 +385,12 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
 
     # Post-processing
 
-    sm_fname = safe_fname(sample_id, "segmetrics.cns")
-    sm_cmd = ['segmetrics', cnr_fname, '-s', cns_fname, '--output', sm_fname,
-              '--ci', '--alpha', '0.5',
-              '--bootstrap', '50' if method == 'wgs' else '100']
-    if drop_low_coverage:
-        sm_cmd.append('--drop-low-coverage')
-    cnvkit(*sm_cmd)
+    # sm_fname = safe_fname(sample_id, "segmetrics.cns")
+    # sm_cmd = ['segmetrics', cnr_fname, '-s', cns_fname, '--output', sm_fname,
+    #           '--ci', '--alpha', '0.5', '--smooth-bootstrap']
+    # if drop_low_coverage:
+    #     sm_cmd.append('--drop-low-coverage')
+    # cnvkit(*sm_cmd)
 
     vcf_fname = sample_id + ".vcf"
     vcf_cmd = ['export', 'vcf', cns_fname, '--output', vcf_fname]
@@ -398,23 +400,24 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
         vcf_cmd.extend(['--ploidy', ploidy])
     cnvkit(*vcf_cmd)
 
-    call_fname = safe_fname(sample_id, "call.cns")
-    call_cmd = ['call', sm_fname, '--output', call_fname,
-                '--center', '--filter', 'ci']
-    #call_cmd.extend(shared_opts)
-    if haploid_x_reference:
-        call_cmd.append('--haploid-x-reference')
-    if vcf:
-        call_cmd.extend(['--vcf', download_link(vcf)])
-    if purity or ploidy:
-        call_cmd.extend(['--method', 'clonal'])
-        if purity:
-            call_cmd.extend(['--purity', purity])
-        if ploidy:
-            call_cmd.extend(['--ploidy', ploidy])
-    else:
-        call_cmd.extend(['--method', 'threshold'])
-    cnvkit(*call_cmd)
+    call_fname = sample_id + ".call.cns"
+
+    # call_cmd = ['call', sm_fname, '--output', call_fname,
+    #             '--center', '--filter', 'ci']
+    # #call_cmd.extend(shared_opts)
+    # if haploid_x_reference:
+    #     call_cmd.append('--haploid-x-reference')
+    # if vcf:
+    #     call_cmd.extend(['--vcf', download_link(vcf)])
+    # if purity or ploidy:
+    #     call_cmd.extend(['--method', 'clonal'])
+    #     if purity:
+    #         call_cmd.extend(['--purity', purity])
+    #     if ploidy:
+    #         call_cmd.extend(['--ploidy', ploidy])
+    # else:
+    #     call_cmd.extend(['--method', 'threshold'])
+    # cnvkit(*call_cmd)
 
     genemetrics_fname = safe_fname(sample_id, "genemetrics.csv")
     gm_cmd = ['genemetrics', cnr_fname, '--segment', call_fname,
@@ -425,10 +428,12 @@ def run_sample(sample_bam, method, cn_reference, vcf, purity, ploidy,
 
     # Rebuild the scatter plot (even though 'batch' creates one) with
     # filtered segments, CN-indicating segment colors, and in PNG format
-    scatter_fname = sample_id + "-scatter.png"
-    scatter_cmd = ['scatter', cnr_fname, '-s', call_fname,
-                   '--output', scatter_fname]
-    cnvkit(*scatter_cmd)
+    # scatter_fname = sample_id + "-scatter.png"
+    # scatter_cmd = ['scatter', cnr_fname, '-s', call_fname,
+    #                '--output', scatter_fname]
+    # cnvkit(*scatter_cmd)
+    #scatter_fname = sample_id + "-scatter.png"
+    scatter_fname = sample_id + "-scatter.pdf"
 
     return {'copy_ratios': upload_link(cnr_fname),
             'copy_segments': upload_link(cns_fname),
